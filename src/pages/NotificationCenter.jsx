@@ -37,14 +37,14 @@ const NotificationCenter = () => {
       const response = await fetch("http://localhost:3002/event-responses");
       const data = await response.json();
       console.log("all messages", data);
-
+  
       const userNotifications = currentUser
         ? data.responses.filter(
             (notification) =>
-              notification.eventRequest.organizer === currentUser?.user.id
+              notification.eventRequest.organizer === currentUser?.user.id // filter notifications by current user
           )
         : [];
-
+  
       setNotifications(userNotifications);
       console.log(userNotifications);
     } catch (error) {
@@ -53,6 +53,7 @@ const NotificationCenter = () => {
       setLoading(false);
     }
   };
+  
 
   const filteredNotifications = notifications.filter(
     (notification) =>

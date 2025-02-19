@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { SignupModal } from "../components/SignupModal";
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isSignupModalOpen, setIsSignupModalOpen] = useState(false)
   const navigate = useNavigate()
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -109,13 +111,13 @@ export default function Login() {
 
           <p className="signup-prompt">
             Don't have an account?{" "}
-            <a href="/signup" className="signup-link">
+            <button onClick={() => setIsSignupModalOpen(true)} className="signup-link">
               Sign up here
-            </a>
+            </button>
           </p>
         </div>
       </main>
-
+      <SignupModal isOpen={isSignupModalOpen} onClose={() => setIsSignupModalOpen(false)} />
      
       <style jsx>{`
         .container {
@@ -252,11 +254,17 @@ export default function Login() {
           color: #4a5568;
         }
 
+       
+
         .signup-link {
           color: #00a389;
           text-decoration: none;
+          background: none;
+          border: none;
+          padding: 0;
+          font: inherit;
+          cursor: pointer;
         }
-
         .footer {
           padding: 2rem;
           display: flex;

@@ -11,6 +11,7 @@ import {
   LogOut,
   ChevronDown,
   Bell,
+  Newspaper,
 } from "lucide-react";
 import axios from "axios";
 export default function Sidebar() {
@@ -79,7 +80,10 @@ export default function Sidebar() {
             </div>
           )}
         </div>
-
+          <a href="requests" className="nav-item">
+            <Newspaper size={20}/>
+            Request Made
+          </a>
         <a href="/tickets" className="nav-item">
           <Ticket size={20} />
           Ticket Sales
@@ -95,7 +99,7 @@ export default function Sidebar() {
           Analytics
         </a>
 
-        <a href="/payments" className="nav-item">
+        <a href="/payment" className="nav-item">
           <CreditCard size={20} />
           Payments
         </a>
@@ -116,7 +120,7 @@ export default function Sidebar() {
           Settings
         </a>
 
-        <a href="/logout" className="nav-item logout">
+        <a href="/" className="nav-item logout">
           <LogOut size={20} />
           Logout
         </a>

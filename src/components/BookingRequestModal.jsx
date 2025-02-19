@@ -1,34 +1,33 @@
-import { useState, useEffect } from "react";
-import { X } from "lucide-react";
+import { useState, useEffect } from "react"
+import { X } from "lucide-react"
 
 export function BookingRequestModal({ venueName, capacity, onClose }) {
-  const [eventName, setEventName] = useState("");
-  const [guestCount, setGuestCount] = useState("");
-  const [specialRequests, setSpecialRequests] = useState("");
-  const [selectedDates, setSelectedDates] = useState([]);
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [eventDates, setEventDates] = useState([]);
-
+  const [guestCount, setGuestCount] = useState("")
+  const [selectedDates, setSelectedDates] = useState([])
+  const [currentMonth, setCurrentMonth] = useState(new Date())
+  const [eventDates, setEventDates] = useState([])
+  const [eventName, setEventName] = useState("")
+  const [additionalNotes, setAdditionalNotes] = useState("")
 
   useEffect(() => {
     const fetchEventDetails = async () => {
       try {
-        const response = await fetch(`http://localhost:3002/event-requests/ground/name/${venueName}`);
+        const response = await fetch(`http://localhost:3002/event-requests/ground/name/${venueName}`)
         if (response.ok) {
-          const data = await response.json();
+          const data = await response.json()
           if (data.length > 0) {
-            setEventDates(data[0].eventDates.map(date => new Date(date).toISOString().split("T")[0]));
+            setEventDates(data[0].requestedDates.map((date) => new Date(date).toISOString().split("T")[0]))
           }
         }
       } catch (error) {
-        console.error("Error fetching event details:", error);
+        console.error("Error fetching event details:", error)
       }
-    };
-    fetchEventDetails();
-  }, [venueName]);
+    }
+    fetchEventDetails()
+  }, [venueName])
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e.preventDefault()
     try {
       const response = await fetch("http://localhost:3002/event-requests", {
         method: "POST",
@@ -36,41 +35,36 @@ export function BookingRequestModal({ venueName, capacity, onClose }) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          eventGroundName: venueName,
-          eventName: eventName,
-          eventDescription: specialRequests,
+          eventGround: venueName,
           eventDates: selectedDates,
-          expectedAttendance: parseInt(guestCount, 10),
+          expectedAttendees: Number.parseInt(guestCount, 10),
+          additionalNotes: additionalNotes,
         }),
         credentials: "include",
-      });
+      })
 
       if (response.ok) {
-        onClose();
-        alert("Booking request submitted successfully!");
+        onClose()
+        alert("Booking request submitted successfully!")
       } else {
-        throw new Error("Failed to submit booking request");
+        throw new Error("Failed to submit booking request")
       }
     } catch (error) {
-      console.error("Error submitting booking request:", error);
-      alert("Failed to submit booking request. Please try again.");
+      console.error("Error submitting booking request:", error)
+      alert("Failed to submit booking request. Please try again.")
     }
-  };
+  }
 
   const getDaysInMonth = (date) => {
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    const days = new Date(year, month + 1, 0).getDate();
-    return Array.from({ length: days }, (_, i) => new Date(year, month, i + 1));
-  };
+    const year = date.getFullYear()
+    const month = date.getMonth()
+    const days = new Date(year, month + 1, 0).getDate()
+    return Array.from({ length: days }, (_, i) => new Date(year, month, i + 1))
+  }
 
   const toggleDateSelection = (dateStr) => {
-    setSelectedDates((prev) =>
-      prev.includes(dateStr)
-        ? prev.filter((d) => d !== dateStr)
-        : [...prev, dateStr]
-    );
-  };
+    setSelectedDates((prev) => (prev.includes(dateStr) ? prev.filter((d) => d !== dateStr) : [...prev, dateStr]))
+  }
 
   return (
     <div className="modal-overlay">
@@ -78,7 +72,9 @@ export function BookingRequestModal({ venueName, capacity, onClose }) {
         <div className="modal-header">
           <h2>{venueName}</h2>
           <p>Maximum capacity: {capacity} guests</p>
-          <button className="close-button" onClick={onClose}><X size={24} /></button>
+          <button className="close-button" onClick={onClose}>
+            <X size={24} />
+          </button>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -87,19 +83,27 @@ export function BookingRequestModal({ venueName, capacity, onClose }) {
               <button
                 type="button"
                 onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() - 1)))}
-              >←</button>
+              >
+                ←
+              </button>
               <h3>{currentMonth.toLocaleString("default", { month: "long", year: "numeric" })}</h3>
               <button
                 type="button"
                 onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() + 1)))}
-              >→</button>
+              >
+                →
+              </button>
             </div>
             <div className="calendar">
-              <div className="weekdays">{["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => <div key={day}>{day}</div>)}</div>
+              <div className="weekdays">
+                {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
+                  <div key={day}>{day}</div>
+                ))}
+              </div>
               <div className="days">
                 {getDaysInMonth(currentMonth).map((date) => {
-                  const dateStr = date.toISOString().split("T")[0];
-                  const isPastDate = date < new Date().setHours(0, 0, 0, 0);
+                  const dateStr = date.toISOString().split("T")[0]
+                  const isPastDate = date < new Date().setHours(0, 0, 0, 0)
                   return (
                     <button
                       key={dateStr}
@@ -110,30 +114,52 @@ export function BookingRequestModal({ venueName, capacity, onClose }) {
                     >
                       {date.getDate()}
                     </button>
-                  );
+                  )
                 })}
               </div>
             </div>
-
-          </div>
-          <div className="form-group">
-            <label htmlFor="eventName">Event Name</label>
-            <input id="eventName" type="text" value={eventName} onChange={(e) => setEventName(e.target.value)}  required />
           </div>
 
           <div className="form-group">
             <label htmlFor="guestCount">Number of Guests</label>
-            <input id="guestCount" type="number" value={guestCount} onChange={(e) => setGuestCount(e.target.value)} max={capacity} required />
+            <input
+              id="guestCount"
+              type="number"
+              value={guestCount}
+              onChange={(e) => setGuestCount(e.target.value)}
+              max={capacity}
+              required
+            />
           </div>
 
           <div className="form-group">
-            <label htmlFor="specialRequests">Special Requests</label>
-            <textarea id="specialRequests" value={specialRequests} onChange={(e) => setSpecialRequests(e.target.value)} rows={4} />
+            <label htmlFor="eventName">Event Name</label>
+            <input
+              id="eventName"
+              type="text"
+              value={eventName}
+              onChange={(e) => setEventName(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="additionalNotes">Additional Notes</label>
+            <textarea
+              id="additionalNotes"
+              value={additionalNotes}
+              onChange={(e) => setAdditionalNotes(e.target.value)}
+              rows={4}
+            ></textarea>
           </div>
 
           <div className="form-actions">
-            <button type="submit" className="submit-button">Submit Request</button>
-            <button type="button" className="cancel-button" onClick={onClose}>Cancel</button>
+            <button type="submit" className="submit-button">
+              Submit Request
+            </button>
+            <button type="button" className="cancel-button" onClick={onClose}>
+              Cancel
+            </button>
           </div>
         </form>
       </div>
@@ -166,31 +192,6 @@ export function BookingRequestModal({ venueName, capacity, onClose }) {
           justify-content: space-between;
           align-items: flex-start;
           margin-bottom: 1.5rem;
-        }
-
-        .venue-info {
-          display: flex;
-          gap: 1rem;
-          align-items: center;
-        }
-
-        .venue-image {
-          width: 48px;
-          height: 48px;
-          border-radius: 4px;
-          object-fit: cover;
-        }
-
-        .venue-info h2 {
-          font-size: 1.25rem;
-          font-weight: 600;
-          margin: 0;
-        }
-
-        .venue-info p {
-          color: #666;
-          font-size: 0.875rem;
-          margin: 0;
         }
 
         .close-button {
@@ -249,28 +250,22 @@ export function BookingRequestModal({ venueName, capacity, onClose }) {
           cursor: pointer;
         }
 
-        .day:hover {
-          background: #f8f9fa;
-        }
-
         .day.selected {
           background: #00a389;
           color: white;
+        }
+
+        .day.reserved {
+          background:rgb(210, 163, 21) !important;
+          color: white;
+          cursor: not-allowed;
         }
 
         .form-group {
           margin-bottom: 1.5rem;
         }
 
-        .form-group label {
-          display: block;
-          margin-bottom: 0.5rem;
-          font-weight: 500;
-        }
-
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
+        .form-group input {
           width: 100%;
           padding: 0.75rem;
           border: 1px solid #e2e8f0;
@@ -279,6 +274,11 @@ export function BookingRequestModal({ venueName, capacity, onClose }) {
         }
 
         .form-group textarea {
+          width: 100%;
+          padding: 0.75rem;
+          border: 1px solid #e2e8f0;
+          border-radius: 4px;
+          font-size: 1rem;
           resize: vertical;
         }
 
@@ -297,38 +297,8 @@ export function BookingRequestModal({ venueName, capacity, onClose }) {
           font-weight: 500;
           cursor: pointer;
         }
-
-        .submit-button:hover {
-          background: #008f78;
-        }
-
-        .cancel-button {
-          background: white;
-          border: 1px solid #e2e8f0;
-          padding: 0.75rem 1.5rem;
-          border-radius: 4px;
-          font-weight: 500;
-          cursor: pointer;
-        }
-
-        .cancel-button:hover {
-          background: #f8f9fa;
-        }
-
-        .day.reserved {
-          background:rgb(210, 163, 21) !important;
-          color: white;
-          cursor: not-allowed;
-        }
-        .day.selected {
-          background: #00a389 !important;
-          color: white;
-        }
-        .day:disabled {
-          background: #ccc;
-          cursor: not-allowed;
-        }
       `}</style>
     </div>
-  );
+  )
 }
+

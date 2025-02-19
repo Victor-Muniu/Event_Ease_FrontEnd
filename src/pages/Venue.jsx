@@ -1,24 +1,36 @@
-import { useEffect, useState } from "react";
-import { MapPin, Users } from "lucide-react";
-import LocationMap from "../components/LocationMap";
-import { BookingRequestModal } from "../components/BookingRequestModal";
+import { useEffect, useState, useMemo } from "react"
+import { MapPin, Users, Search } from "lucide-react"
+import LocationMap from "../components/LocationMap"
+import { BookingRequestModal } from "../components/BookingRequestModal"
 export default function Venue() {
-  const [venues, setVenues] = useState([]);
-  const [selectedLocation, setSelectedLocation] = useState(null);
+  const [venues, setVenues] = useState([])
+  const [selectedLocation, setSelectedLocation] = useState(null)
   const [selectedVenue, setSelectedVenue] = useState(null)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [capacityFilter, setCapacityFilter] = useState("")
+  const [priceFilter, setPriceFilter] = useState("")
   useEffect(() => {
     const fetchVenues = async () => {
       try {
-        const response = await fetch("http://localhost:3002/event-grounds");
-        const data = await response.json();
-        setVenues(data);
+        const response = await fetch("http://localhost:3002/event-grounds")
+        const data = await response.json()
+        setVenues(data)
       } catch (error) {
-        console.error("Error fetching venues:", error);
+        console.error("Error fetching venues:", error)
       }
-    };
+    }
 
-    fetchVenues();
-  }, []);
+    fetchVenues()
+  }, [])
+
+  const filteredVenues = useMemo(() => {
+    return venues.filter((venue) => {
+      const matchesSearch = venue.name.toLowerCase().includes(searchTerm.toLowerCase())
+      const matchesCapacity = capacityFilter === "" || venue.capacity >= Number.parseInt(capacityFilter)
+      const matchesPrice = priceFilter === "" || venue.pricePerDay <= Number.parseInt(priceFilter)
+      return matchesSearch && matchesCapacity && matchesPrice
+    })
+  }, [venues, searchTerm, capacityFilter, priceFilter])
 
   return (
     <div>
@@ -35,52 +47,54 @@ export default function Venue() {
       <main className="main-content container">
         <h1 className="page-title">Available Event Venues</h1>
         <p className="page-description">
-          Find the perfect location for your next event. Request a venue or
-          manage your bookings.
+          Find the perfect location for your next event. Request a venue or manage your bookings.
         </p>
 
         <div className="filters">
-          <select className="filter-select">
-            <option value="">Location</option>
-          </select>
-          <select className="filter-select">
-            <option value="">Event Type</option>
-          </select>
-          <select className="filter-select">
+          <div className="search-bar">
+            <Search size={20} />
+            <input
+              type="text"
+              placeholder="Search venues..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="search-input"
+            />
+          </div>
+          <select className="filter-select" value={capacityFilter} onChange={(e) => setCapacityFilter(e.target.value)}>
             <option value="">Capacity</option>
+            <option value="1000">1000+ guests</option>
+            <option value="2000">2000+ guests</option>
+            <option value="3000">3000+ guests</option>
+            <option value="4000">4000+ guests</option>
+            <option value="5000">5000+ guests</option>
+            <option value="8000">8000+ guests</option>
           </select>
-          <select className="filter-select">
+          <select className="filter-select" value={priceFilter} onChange={(e) => setPriceFilter(e.target.value)}>
             <option value="">Price Range</option>
+            <option value="10000">Up to 10,000 KES</option>
+            <option value="50000">Up to 50,000 KES</option>
+            <option value="100000">Up to 100,000 KES</option>
+            <option value="200000">Up to 200,000 KES</option>
           </select>
-          <input type="date" className="filter-select" />
-          <button className="filter-select">More Filters</button>
         </div>
 
         <div className="venues-grid">
-          {venues.map((venue) => (
+          {filteredVenues.map((venue) => (
             <div key={venue._id} className="venue-card">
               <div className="venue-image">
-                <img
-                  src={venue.images[0]}
-                  width="400"
-                  height="210"
-                  alt={venue.name}
-                />
-                
+                <img src={venue.images[0] || "/placeholder.svg"} width="400" height="210" alt={venue.name} />
               </div>
               <div className="venue-content">
                 <h2 className="venue-name">{venue.name}</h2>
                 <div className="venue-details">
                   <p>
                     <MapPin size={16} />
-                    Location coordinates:{" "}
-                    {venue.location.coordinates.join(", ")}
+                    Location coordinates: {venue.location.coordinates.join(", ")}
                   </p>
                   <button
                     className="view-location-button"
-                    onClick={() =>
-                      setSelectedLocation(venue.location.coordinates)
-                    }
+                    onClick={() => setSelectedLocation(venue.location.coordinates)}
                   >
                     View Precise Location
                   </button>
@@ -96,48 +110,14 @@ export default function Venue() {
                     </span>
                   ))}
                 </div>
-                <button className="request-button" onClick={() => setSelectedVenue(venue)}>Request This Venue</button>
+                <button className="request-button" onClick={() => setSelectedVenue(venue)}>
+                  Request This Venue
+                </button>
               </div>
             </div>
           ))}
         </div>
 
-        <section>
-          <h2 className="page-title">My Bookings</h2>
-          <table className="bookings-table">
-            <thead>
-              <tr>
-                <th>Event Name</th>
-                <th>Venue</th>
-                <th>Date</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>Tech Conference 2025</td>
-                <td>Grand Plaza Events</td>
-                <td>Mar 15, 2025</td>
-                <td>
-                  <span className="status-badge status-confirmed">
-                    Confirmed
-                  </span>
-                </td>
-                <td>View • Cancel</td>
-              </tr>
-              <tr>
-                <td>Wedding Reception</td>
-                <td>Royal Ballroom</td>
-                <td>Apr 22, 2025</td>
-                <td>
-                  <span className="status-badge status-pending">Pending</span>
-                </td>
-                <td>View • Cancel</td>
-              </tr>
-            </tbody>
-          </table>
-        </section>
         {selectedLocation && <LocationMap coordinates={selectedLocation} onClose={() => setSelectedLocation(null)} />}
         {selectedVenue && (
           <BookingRequestModal
@@ -268,6 +248,7 @@ export default function Venue() {
           gap: 1rem;
           margin-bottom: 2rem;
           flex-wrap: wrap;
+          align-items: center;
         }
 
         .filter-select {
@@ -425,7 +406,26 @@ export default function Venue() {
           background-color: var(--primary);
           color: white;
         }
+
+        .search-bar {
+          display: flex;
+          align-items: center;
+          background-color: white;
+          border: 1px solid var(--border-color);
+          border-radius: 4px;
+          padding: 0.5rem;
+          flex-grow: 1;
+          margin-right: 1rem;
+        }
+
+        .search-input {
+          border: none;
+          outline: none;
+          margin-left: 0.5rem;
+          flex-grow: 1;
+        }
       `}</style>
     </div>
-  );
+  )
 }
+

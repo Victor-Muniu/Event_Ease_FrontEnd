@@ -9,6 +9,8 @@ import Dashboard from "../pages/Dashboard";
 import Venue from "../pages/Venue";
 import NotificationCenter from "../pages/NotificationCenter";
 import CreateEventForm from "../pages/CreateEventForm";
+import EventRequests from "../pages/EventRequests";
+import PaymentHistory from "../pages/PaymentHistory";
 export const router = createBrowserRouter([
   {
     path: "/",
@@ -70,5 +72,25 @@ export const router = createBrowserRouter([
       },
     ],
   },
-  
+  {
+    path: "/requests",
+    element: <ProtectedRoute element={<MainLayout />}/>,
+    children: [
+      {
+        index: true,
+        element: <EventRequests />
+      },
+    ],
+  },
+  {
+    path: "/payment",
+    element: <ProtectedRoute element={<MainLayout />}/>,
+    children: [
+      {
+        index: true,
+        element: <PaymentHistory />
+      },
+    ],
+  },
+
 ]);
