@@ -1,16 +1,14 @@
 import { createBrowserRouter } from "react-router-dom";
 import AppLayout from "../layout/AppLayout";
-import Home from "../pages/Home";
-import Events from "../pages/Events";
-import Login from "../pages/Login";
+import MainLayout from "../layout/MainLayout"
 import ProtectedRoute from "./ProtectedRoute";
-import MainLayout from "../layout/MainLayout";
+import LandingPage from "../pages/LandingPage";
+import Login from "../pages/Login"
 import Dashboard from "../pages/Dashboard";
-import Venue from "../pages/Venue";
-import NotificationCenter from "../pages/NotificationCenter";
-import CreateEventForm from "../pages/CreateEventForm";
-import EventRequests from "../pages/EventRequests";
-import PaymentHistory from "../pages/PaymentHistory";
+import Venues from "../pages/Venues";
+import VenueRequestDashboard from "../pages/VenueRequestDashboard";
+import PaymentReport from "../pages/PaymentReport"
+import BookingFinalization from "../pages/BookingFinalization"
 export const router = createBrowserRouter([
   {
     path: "/",
@@ -18,22 +16,12 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <Home />,
+        element: <LandingPage />,
       },
     ],
   },
   {
-    path: "/events",
-    element: <AppLayout />,
-    children: [
-      {
-        index: true,
-        element: <Events />
-      },
-    ],
-  },
-  {
-    path: "/login_organizer",
+    path: "/login",
     element: <AppLayout />,
     children: [
       {
@@ -53,32 +41,22 @@ export const router = createBrowserRouter([
     ],
   },
   {
-    path: "/event_grounds",
+    path: "/venues",
     element: <ProtectedRoute element={<MainLayout />}/>,
     children: [
       {
         index: true,
-        element: <Venue />
+        element: <Venues />
       },
     ],
   },
   {
-    path: "/notifications",
+    path: "/venue_request",
     element: <ProtectedRoute element={<MainLayout />}/>,
     children: [
       {
         index: true,
-        element: <NotificationCenter />
-      },
-    ],
-  },
-  {
-    path: "/requests",
-    element: <ProtectedRoute element={<MainLayout />}/>,
-    children: [
-      {
-        index: true,
-        element: <EventRequests />
+        element: <VenueRequestDashboard />,
       },
     ],
   },
@@ -88,9 +66,18 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <PaymentHistory />
+        element: <PaymentReport />,
       },
     ],
   },
-
+  {
+    path: "/create",
+    element: <ProtectedRoute element={<MainLayout />}/>,
+    children: [
+      {
+        index: true,
+        element: <BookingFinalization />,
+      },
+    ],
+  },
 ]);

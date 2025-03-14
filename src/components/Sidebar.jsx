@@ -71,16 +71,16 @@ export default function Sidebar() {
 
           {isEventsOpen && (
             <div className="submenu">
-              <a href="/event_grounds" className="nav-item">
-                Event Grounds
+              <a href="/venues" className="nav-item">
+                Venues
               </a>
-              <a href="/events/agenda" className="nav-item">
-                Manage Your Events
+              <a href="/create" className="nav-item">
+              Create Events
               </a>
             </div>
           )}
         </div>
-          <a href="requests" className="nav-item">
+          <a href="venue_request" className="nav-item">
             <Newspaper size={20}/>
             Request Made
           </a>
@@ -128,7 +128,7 @@ export default function Sidebar() {
       <style jsx>{`
         .sidebar {
           width: 240px;
-          height: 100vh;
+         
           background: white;
           border-right: 1px solid #eaeaea;
           padding: 20px 0;
