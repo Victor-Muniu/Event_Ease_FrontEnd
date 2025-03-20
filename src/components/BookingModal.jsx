@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { formatDate, formatCurrency } from "../utils/Formatters";
 
-
 export default function BookingModal({
   response,
   onClose,

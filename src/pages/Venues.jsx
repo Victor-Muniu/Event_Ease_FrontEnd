@@ -47,7 +47,7 @@ export default function Venue() {
   const [currentYear, setCurrentYear] = useState(today.getFullYear())
   const [activeImageIndex, setActiveImageIndex] = useState(0)
   const [favorites, setFavorites] = useState([])
-  const [viewMode, setViewMode] = useState("hexagon") // hexagon, list, or grid
+  const [viewMode, setViewMode] = useState("grid") // hexagon, list, or grid
   const [hoverVenue, setHoverVenue] = useState(null)
   const [animateIn, setAnimateIn] = useState(false)
 

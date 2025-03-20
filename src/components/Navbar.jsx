@@ -13,7 +13,7 @@ export default function Navbar() {
     <header className="navbar">
       <div className="navbar-container">
         <div className="navbar-logo">
-          <Link href="/">
+          <Link to="/">
             <h1>
               Event<span>Ease</span>
             </h1>
@@ -27,13 +27,11 @@ export default function Navbar() {
         <nav className={`navbar-menu ${isMenuOpen ? "active" : ""}`}>
           <ul className="navbar-links">
             <li>
-              <Link href="/events">Browse Events</Link>
+              <Link to="/upcoming">Browse Events</Link>
             </li>
+          
             <li>
-              <Link href="/venues">Venues</Link>
-            </li>
-            <li>
-              <Link href="/organizers">For Organizers</Link>
+              <Link to="/organizers">For Organizers</Link>
             </li>
             <li>
               <Link href="/about">About Us</Link>

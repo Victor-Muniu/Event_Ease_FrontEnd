@@ -9,6 +9,10 @@ import Venues from "../pages/Venues";
 import VenueRequestDashboard from "../pages/VenueRequestDashboard";
 import PaymentReport from "../pages/PaymentReport"
 import BookingFinalization from "../pages/BookingFinalization"
+import PaymentPage from "../pages/PaymentPage";
+import Events from "../pages/Events";
+import EventPage from "../pages/EventPage";
+import Organizers from "../pages/Organizers";
 export const router = createBrowserRouter([
   {
     path: "/",
@@ -17,6 +21,26 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: <LandingPage />,
+      },
+    ],
+  },
+  {
+    path: "/upcoming",
+    element: <AppLayout />,
+    children: [
+      {
+        index: true,
+        element: <EventPage />,
+      },
+    ],
+  },
+  {
+    path: "/organizers",
+    element: <AppLayout />,
+    children: [
+      {
+        index: true,
+        element: <Organizers />
       },
     ],
   },
@@ -77,6 +101,26 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: <BookingFinalization />,
+      },
+    ],
+  },
+  {
+    path: "/pay",
+    element: <ProtectedRoute element={<MainLayout />}/>,
+    children: [
+      {
+        index: true,
+        element: <PaymentPage />
+      },
+    ],
+  },
+  {
+    path: "/events",
+    element: <ProtectedRoute element={<MainLayout />}/>,
+    children: [
+      {
+        index: true,
+        element: <Events />,
       },
     ],
   },
