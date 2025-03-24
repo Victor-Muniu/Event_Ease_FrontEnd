@@ -75,6 +75,10 @@ export default function Sidebar() {
               <a href="/create" className="nav-item">
                 Create Event
               </a>
+              <a href="/generate_tickets" className="nav-item">
+                Generate Tickets
+              </a>
+
             </div>
           )}
         </div>

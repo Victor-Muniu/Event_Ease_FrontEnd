@@ -1,132 +1,150 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react"
 
 function Events() {
-  const [events, setEvents] = useState([]);
-  const [filteredEvents, setFilteredEvents] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [activeFilter, setActiveFilter] = useState("All");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedEvent, setSelectedEvent] = useState(null);
-  const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [timeIndicator, setTimeIndicator] = useState(new Date());
-  const [viewMode, setViewMode] = useState("grid");
+  const [events, setEvents] = useState([])
+  const [filteredEvents, setFilteredEvents] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [activeFilter, setActiveFilter] = useState("Upcoming")
+  const [searchTerm, setSearchTerm] = useState("")
+  const [selectedEvent, setSelectedEvent] = useState(null)
+  const [isDetailOpen, setIsDetailOpen] = useState(false)
+  const [timeIndicator, setTimeIndicator] = useState(new Date())
+  const [viewMode, setViewMode] = useState("table")
+  const [daysRemaining, setDaysRemaining] = useState(0)
+  const [capacityFilter, setCapacityFilter] = useState("")
+  const [timeframeFilter, setTimeframeFilter] = useState("")
+  const [isFilterOpen, setIsFilterOpen] = useState(false)
 
-  const timelineRef = useRef(null);
+  const timelineRef = useRef(null)
 
-  // Add these new state variables after the existing state declarations (around line 15)
-  const [currentUser, setCurrentUser] = useState(null);
-  const [completeBookings, setCompleteBookings] = useState([]);
-  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
-  const [selectedBooking, setSelectedBooking] = useState(null);
-  const [isCreatingEvent, setIsCreatingEvent] = useState(false);
-  const [assignedBookingIds, setAssignedBookingIds] = useState([]);
-  const [loadingBookings, setLoadingBookings] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null)
+  const [completeBookings, setCompleteBookings] = useState([])
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false)
+  const [selectedBooking, setSelectedBooking] = useState(null)
+  const [isCreatingEvent, setIsCreatingEvent] = useState(false)
+  const [assignedBookingIds, setAssignedBookingIds] = useState([])
+  const [loadingBookings, setLoadingBookings] = useState(false)
 
-  // Fetch events data
+  // Add this combined useEffect that fetches user first, then events
   useEffect(() => {
-    // Modify the existing fetchEvents function in the first useEffect to filter by current user
-    // Replace the existing fetchEvents function with this one
-    const fetchEvents = async () => {
+    const fetchUserAndEvents = async () => {
       try {
-        setLoading(true);
-        const response = await fetch("http://localhost:3002/events");
+        setLoading(true)
 
-        if (!response.ok) {
-          throw new Error(`Failed to fetch events: ${response.status}`);
+        // First fetch the current user
+        const userResponse = await fetch("http://localhost:3002/current-user", {
+          credentials: "include",
+        })
+
+        if (!userResponse.ok) {
+          throw new Error(`Failed to fetch current user: ${userResponse.status}`)
         }
 
-        const data = await response.json();
+        const userData = await userResponse.json()
+        const user = userData.user
+        setCurrentUser(user)
+
+        // Then fetch events with the user data
+        const eventsResponse = await fetch("http://localhost:3002/events")
+
+        if (!eventsResponse.ok) {
+          throw new Error(`Failed to fetch events: ${eventsResponse.status}`)
+        }
+
+        const eventsData = await eventsResponse.json()
 
         // Extract booking IDs that are already assigned to events
-        const bookingIds = data.map((event) => event.bookingId._id);
-        setAssignedBookingIds(bookingIds);
+        const bookingIds = eventsData.map((event) => event.bookingId._id)
+        setAssignedBookingIds(bookingIds)
 
-        // Filter events by current user if available
-        if (currentUser) {
-          const filteredData = data.filter(
-            (event) => event.bookingId.organizer._id === currentUser.id
-          );
-          setEvents(filteredData);
-          setFilteredEvents(filteredData);
+        // Filter events by current user
+        if (user) {
+          const filteredData = eventsData.filter((event) => event.bookingId.organizer._id === user.id)
+          setEvents(filteredData)
+
+          // Set filtered events to upcoming by default
+          const upcomingEvents = filteredData.filter((event) => event.status === "Upcoming")
+          setFilteredEvents(upcomingEvents)
+          setActiveFilter("Upcoming")
         } else {
-          setEvents(data);
-          setFilteredEvents(data);
+          setEvents([]) // If no user, show no events
+          setFilteredEvents([])
         }
       } catch (err) {
-        console.error("Error fetching events:", err);
-        setError(
-          err instanceof Error ? err.message : "An unknown error occurred"
-        );
+        console.error("Error fetching data:", err)
+        setError(err instanceof Error ? err.message : "An unknown error occurred")
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
-    };
+    }
 
-    fetchEvents();
-  }, [currentUser]);
+    fetchUserAndEvents()
+  }, []) // Empty dependency array so it only runs once on mount
 
-  // Add this new useEffect to fetch current user after the existing useEffects
+  // Filter events based on active filter, search term, capacity and timeframe
   useEffect(() => {
-    const fetchCurrentUser = async () => {
-      try {
-        const response = await fetch("http://localhost:3002/current-user", {
-          credentials: "include",
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch current user: ${response.status}`);
-        }
-
-        const data = await response.json();
-        setCurrentUser(data.user);
-      } catch (err) {
-        console.error("Error fetching current user:", err);
-      }
-    };
-
-    fetchCurrentUser();
-  }, []);
-
-  // Filter events based on active filter and search term
-  useEffect(() => {
-    let result = [...events];
+    let result = [...events]
 
     // Apply status filter
     if (activeFilter !== "All") {
-      result = result.filter((event) => event.status === activeFilter);
+      result = result.filter((event) => event.status === activeFilter)
     }
 
     // Apply search filter
     if (searchTerm) {
-      const term = searchTerm.toLowerCase();
+      const term = searchTerm.toLowerCase()
       result = result.filter(
         (event) =>
-          event.bookingId.response.venueRequest.eventName
-            .toLowerCase()
-            .includes(term) ||
+          event.bookingId.response.venueRequest.eventName.toLowerCase().includes(term) ||
           (event.bookingId.response.venueRequest.venue &&
-            event.bookingId.response.venueRequest.venue.name
-              .toLowerCase()
-              .includes(term)) ||
+            event.bookingId.response.venueRequest.venue.name.toLowerCase().includes(term)) ||
           (event.bookingId.response.venueRequest.venue &&
-            event.bookingId.response.venueRequest.venue.location
-              .toLowerCase()
-              .includes(term))
-      );
+            event.bookingId.response.venueRequest.venue.location.toLowerCase().includes(term)),
+      )
     }
 
-    setFilteredEvents(result);
-  }, [events, activeFilter, searchTerm]);
+    // Apply capacity filter
+    if (capacityFilter) {
+      const capacity = Number.parseInt(capacityFilter)
+      if (!isNaN(capacity)) {
+        result = result.filter((event) => event.bookingId.response.venueRequest.expectedAttendance >= capacity)
+      }
+    }
+
+    // Apply timeframe filter
+    if (timeframeFilter) {
+      const now = new Date()
+      const timeframeDays = Number.parseInt(timeframeFilter)
+
+      if (!isNaN(timeframeDays)) {
+        const futureDate = new Date()
+        futureDate.setDate(now.getDate() + timeframeDays)
+
+        result = result.filter((event) => {
+          if (
+            event.bookingId.response.venueRequest.eventDates &&
+            event.bookingId.response.venueRequest.eventDates.length > 0
+          ) {
+            const eventDate = new Date(event.bookingId.response.venueRequest.eventDates[0])
+            return eventDate >= now && eventDate <= futureDate
+          }
+          return false
+        })
+      }
+    }
+
+    setFilteredEvents(result)
+  }, [events, activeFilter, searchTerm, capacityFilter, timeframeFilter])
 
   // Update time indicator every minute for the timeline view
   useEffect(() => {
     const interval = setInterval(() => {
-      setTimeIndicator(new Date());
-    }, 60000);
+      setTimeIndicator(new Date())
+    }, 60000)
 
-    return () => clearInterval(interval);
-  }, []);
+    return () => clearInterval(interval)
+  }, [])
 
   // Format date for display
   const formatDate = (dateString) => {
@@ -136,98 +154,92 @@ function Events() {
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
-    };
-    return new Date(dateString).toLocaleDateString("en-US", options);
-  };
+    }
+    return new Date(dateString).toLocaleDateString("en-US", options)
+  }
 
   // Format date range for display
   const formatDateRange = (dates) => {
-    if (!dates || dates.length === 0) return "No dates specified";
+    if (!dates || dates.length === 0) return "No dates specified"
 
     if (dates.length === 1) {
-      return formatDate(dates[0]);
+      return formatDate(dates[0])
     }
 
-    const startDate = new Date(dates[0]);
-    const endDate = new Date(dates[dates.length - 1]);
+    const startDate = new Date(dates[0])
+    const endDate = new Date(dates[dates.length - 1])
 
     const startOptions = {
       month: "short",
       day: "numeric",
-    };
+    }
 
     const endOptions = {
       month: "short",
       day: "numeric",
       year: "numeric",
-    };
+    }
 
     // If same year, don't repeat the year
     if (startDate.getFullYear() === endDate.getFullYear()) {
       // If same month, don't repeat the month
       if (startDate.getMonth() === endDate.getMonth()) {
-        return `${startDate.getDate()} - ${endDate.toLocaleDateString(
-          "en-US",
-          endOptions
-        )}`;
+        return `${startDate.getDate()} - ${endDate.toLocaleDateString("en-US", endOptions)}`
       }
       return `${startDate.toLocaleDateString(
         "en-US",
-        startOptions
-      )} - ${endDate.toLocaleDateString("en-US", endOptions)}`;
+        startOptions,
+      )} - ${endDate.toLocaleDateString("en-US", endOptions)}`
     }
 
-    return `${startDate.toLocaleDateString(
-      "en-US",
-      endOptions
-    )} - ${endDate.toLocaleDateString("en-US", endOptions)}`;
-  };
+    return `${startDate.toLocaleDateString("en-US", endOptions)} - ${endDate.toLocaleDateString("en-US", endOptions)}`
+  }
 
   // Calculate days until event
   const getDaysUntil = (dateString) => {
-    const eventDate = new Date(dateString);
-    const today = new Date();
+    const eventDate = new Date(dateString)
+    const today = new Date()
 
     // Reset time part for accurate day calculation
-    today.setHours(0, 0, 0, 0);
-    eventDate.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0)
+    eventDate.setHours(0, 0, 0, 0)
 
-    const diffTime = eventDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const diffTime = eventDate.getTime() - today.getTime()
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
 
-    return diffDays;
-  };
+    return diffDays
+  }
 
   // Get event duration in days
   const getEventDuration = (dates) => {
-    if (!dates || dates.length <= 1) return 1;
+    if (!dates || dates.length <= 1) return 1
 
-    const startDate = new Date(dates[0]);
-    const endDate = new Date(dates[dates.length - 1]);
+    const startDate = new Date(dates[0])
+    const endDate = new Date(dates[dates.length - 1])
 
     // Reset time part for accurate day calculation
-    startDate.setHours(0, 0, 0, 0);
-    endDate.setHours(0, 0, 0, 0);
+    startDate.setHours(0, 0, 0, 0)
+    endDate.setHours(0, 0, 0, 0)
 
-    const diffTime = endDate.getTime() - startDate.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include the end day
+    const diffTime = endDate.getTime() - startDate.getTime()
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1 // +1 to include the end day
 
-    return diffDays;
-  };
+    return diffDays
+  }
 
   // Get status color
   const getStatusColor = (status) => {
     switch (status) {
       case "Upcoming":
-        return "var(--color-upcoming)";
+        return "var(--color-upcoming)"
       case "Ongoing":
-        return "var(--color-ongoing)";
+        return "var(--color-ongoing)"
       case "Completed":
-        return "var(--color-completed)";
+        return "var(--color-completed)"
       default:
-        return "var(--color-neutral)";
+        return "var(--color-neutral)"
     }
-  };
+  }
 
   // Get status icon
   const getStatusIcon = (status) => {
@@ -237,66 +249,77 @@ function Events() {
           <svg viewBox="0 0 24 24" className="status-icon upcoming">
             <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-        );
+        )
       case "Ongoing":
         return (
           <svg viewBox="0 0 24 24" className="status-icon ongoing">
             <path d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
           </svg>
-        );
+        )
       case "Completed":
         return (
           <svg viewBox="0 0 24 24" className="status-icon completed">
             <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-        );
+        )
       default:
-        return null;
+        return null
     }
-  };
+  }
 
   // Handle event click
   const handleEventClick = (event) => {
-    setSelectedEvent(event);
-    setIsDetailOpen(true);
-  };
+    setSelectedEvent(event)
+
+    // Calculate days remaining for the countdown
+    if (
+      event.status === "Upcoming" &&
+      event.bookingId.response.venueRequest.eventDates &&
+      event.bookingId.response.venueRequest.eventDates.length > 0
+    ) {
+      const days = getDaysUntil(event.bookingId.response.venueRequest.eventDates[0])
+      setDaysRemaining(days)
+    } else {
+      setDaysRemaining(0)
+    }
+
+    setIsDetailOpen(true)
+  }
 
   // Close event detail
   const closeEventDetail = () => {
-    setIsDetailOpen(false);
-    setTimeout(() => setSelectedEvent(null), 300); // Wait for animation to complete
-  };
+    setIsDetailOpen(false)
+    setTimeout(() => setSelectedEvent(null), 300) // Wait for animation to complete
+  }
 
   // Scroll to current time in timeline view
   const scrollToCurrentTime = () => {
     if (timelineRef.current) {
-      const now = new Date();
-      const startOfDay = new Date(now);
-      startOfDay.setHours(0, 0, 0, 0);
+      const now = new Date()
+      const startOfDay = new Date(now)
+      startOfDay.setHours(0, 0, 0, 0)
 
-      const minutesSinceMidnight =
-        (now.getTime() - startOfDay.getTime()) / (1000 * 60);
-      const scrollPosition =
-        (minutesSinceMidnight / 1440) * timelineRef.current.scrollWidth;
+      const minutesSinceMidnight = (now.getTime() - startOfDay.getTime()) / (1000 * 60)
+      const scrollPosition = (minutesSinceMidnight / 1440) * timelineRef.current.scrollWidth
 
       timelineRef.current.scrollTo({
         left: scrollPosition - timelineRef.current.clientWidth / 2,
         behavior: "smooth",
-      });
+      })
     }
-  };
+  }
 
   // Add this function to fetch complete bookings
   const fetchCompleteBookings = async () => {
     try {
-      setLoadingBookings(true);
-      const response = await fetch("http://localhost:3002/bookings");
+      setLoadingBookings(true)
+      const response = await fetch("http://localhost:3002/bookings")
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch bookings: ${response.status}`);
+        throw new Error(`Failed to fetch bookings: ${response.status}`)
       }
 
-      const data = await response.json();
+      const data = await response.json()
 
       // Filter bookings by:
       // 1. Current user
@@ -307,32 +330,30 @@ function Events() {
           (booking) =>
             booking.organizer._id === currentUser.id &&
             booking.status === "Confirmed" &&
-            !assignedBookingIds.includes(booking._id)
-        );
-        setCompleteBookings(filteredData);
+            !assignedBookingIds.includes(booking._id),
+        )
+        setCompleteBookings(filteredData)
       } else {
         const filteredData = data.filter(
-          (booking) =>
-            booking.status === "Confirmed" &&
-            !assignedBookingIds.includes(booking._id)
-        );
-        setCompleteBookings(filteredData);
+          (booking) => booking.status === "Confirmed" && !assignedBookingIds.includes(booking._id),
+        )
+        setCompleteBookings(filteredData)
       }
 
-      setIsBookingModalOpen(true);
+      setIsBookingModalOpen(true)
     } catch (err) {
-      console.error("Error fetching bookings:", err);
-      alert("Failed to load bookings. Please try again.");
+      console.error("Error fetching bookings:", err)
+      alert("Failed to load bookings. Please try again.")
     } finally {
-      setLoadingBookings(false);
+      setLoadingBookings(false)
     }
-  };
+  }
 
   // Add this function to create a new event
   const createEvent = async () => {
-    if (!selectedBooking) return;
+    if (!selectedBooking) return
 
-    setIsCreatingEvent(true);
+    setIsCreatingEvent(true)
 
     try {
       const response = await fetch("http://localhost:3002/events", {
@@ -345,61 +366,226 @@ function Events() {
           status: "Upcoming",
         }),
         credentials: "include",
-      });
+      })
 
       if (!response.ok) {
-        throw new Error(`Failed to create event: ${response.status}`);
+        throw new Error(`Failed to create event: ${response.status}`)
       }
 
       // Refresh events list
       const fetchEvents = async () => {
         try {
-          setLoading(true);
-          const response = await fetch("http://localhost:3002/events");
+          setLoading(true)
+          const response = await fetch("http://localhost:3002/events")
 
           if (!response.ok) {
-            throw new Error(`Failed to fetch events: ${response.status}`);
+            throw new Error(`Failed to fetch events: ${response.status}`)
           }
 
-          const data = await response.json();
+          const data = await response.json()
 
           // Extract booking IDs that are already assigned to events
-          const bookingIds = data.map((event) => event.bookingId._id);
-          setAssignedBookingIds(bookingIds);
+          const bookingIds = data.map((event) => event.bookingId._id)
+          setAssignedBookingIds(bookingIds)
 
           // Filter events by current user if available
           if (currentUser) {
-            const filteredData = data.filter(
-              (event) => event.bookingId.organizer._id === currentUser.id
-            );
-            setEvents(filteredData);
-            setFilteredEvents(filteredData);
+            const filteredData = data.filter((event) => event.bookingId.organizer._id === currentUser.id)
+            setEvents(filteredData)
+            setFilteredEvents(filteredData)
           } else {
-            setEvents(data);
-            setFilteredEvents(data);
+            setEvents(data)
+            setFilteredEvents(data)
           }
         } catch (err) {
-          console.error("Error fetching events:", err);
-          setError(
-            err instanceof Error ? err.message : "An unknown error occurred"
-          );
+          console.error("Error fetching events:", err)
+          setError(err instanceof Error ? err.message : "An unknown error occurred")
         } finally {
-          setLoading(false);
+          setLoading(false)
         }
-      };
-      fetchEvents();
+      }
+      fetchEvents()
 
-      setIsBookingModalOpen(false);
-      setSelectedBooking(null);
+      setIsBookingModalOpen(false)
+      setSelectedBooking(null)
 
-      alert("Event created successfully!");
+      alert("Event created successfully!")
     } catch (err) {
-      console.error("Error creating event:", err);
-      alert("Failed to create event. Please try again.");
+      console.error("Error creating event:", err)
+      alert("Failed to create event. Please try again.")
     } finally {
-      setIsCreatingEvent(false);
+      setIsCreatingEvent(false)
     }
-  };
+  }
+
+  // Generate report based on filtered events
+  const generateReport = () => {
+    // Create a report based on the current filtered events
+    const reportData = filteredEvents.map((event) => ({
+      eventName: event.bookingId.response.venueRequest.eventName,
+      venue: event.bookingId.response.venueRequest.venue
+        ? event.bookingId.response.venueRequest.venue.name
+        : "No Venue",
+      dates: formatDateRange(event.bookingId.response.venueRequest.eventDates),
+      attendance: event.bookingId.response.venueRequest.expectedAttendance,
+      status: event.status,
+      payment: event.bookingId.amountPaid >= event.bookingId.totalAmount ? "Fully Paid" : "Partially Paid",
+      amountPaid: event.bookingId.amountPaid,
+      totalAmount: event.bookingId.totalAmount,
+    }))
+
+    // Calculate summary statistics
+    const totalEvents = reportData.length
+    const totalAttendance = reportData.reduce((sum, event) => sum + event.attendance, 0)
+    const totalRevenue = reportData.reduce((sum, event) => sum + event.amountPaid, 0)
+    const fullyPaidCount = reportData.filter((event) => event.payment === "Fully Paid").length
+
+    // Create CSV content
+    let csvContent = "data:text/csv;charset=utf-8,"
+
+    // Add report header with summary
+    csvContent += `Events Report - ${activeFilter !== "All" ? activeFilter : "All"} Events\n`
+    csvContent += `Generated on: ${new Date().toLocaleString()}\n`
+    csvContent += `Total Events: ${totalEvents}\n`
+    csvContent += `Total Expected Attendance: ${totalAttendance}\n`
+    csvContent += `Total Revenue: ${totalRevenue}\n`
+    csvContent += `Fully Paid Events: ${fullyPaidCount} (${Math.round((fullyPaidCount / totalEvents) * 100)}%)\n\n`
+
+    // Add column headers
+    csvContent += "Event Name,Venue,Dates,Expected Attendance,Status,Payment Status,Amount Paid,Total Amount\n"
+
+    // Add data rows
+    reportData.forEach((event) => {
+      csvContent += `"${event.eventName}","${event.venue}","${event.dates}",${event.attendance},${event.status},${event.payment},${event.amountPaid},${event.totalAmount}\n`
+    })
+
+    // Create download link
+    const encodedUri = encodeURI(csvContent)
+    const link = document.createElement("a")
+    link.setAttribute("href", encodedUri)
+    link.setAttribute(
+      "download",
+      `events_report_${activeFilter.toLowerCase()}_${new Date().toISOString().split("T")[0]}.csv`,
+    )
+    document.body.appendChild(link)
+
+    // Trigger download
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  // Add the generatePdfReport function after the generateReport function
+  // Generate PDF report based on filtered events
+  const generatePdfReport = () => {
+    // We'll use dynamic imports to load the libraries only when needed
+    import("jspdf").then(({ default: jsPDF }) => {
+      import("jspdf-autotable").then(({ default: autoTable }) => {
+        // Create a new PDF document
+        const doc = new jsPDF()
+
+        // Add report title and metadata
+        doc.setFontSize(18)
+        doc.text(`Events Report - ${activeFilter !== "All" ? activeFilter : "All"} Events`, 14, 22)
+
+        doc.setFontSize(11)
+        doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30)
+
+        // Add summary statistics
+        const totalEvents = filteredEvents.length
+        const totalAttendance = filteredEvents.reduce(
+          (sum, event) => sum + event.bookingId.response.venueRequest.expectedAttendance,
+          0,
+        )
+        const totalRevenue = filteredEvents.reduce((sum, event) => sum + event.bookingId.amountPaid, 0)
+        const fullyPaidCount = filteredEvents.filter(
+          (event) => event.bookingId.amountPaid >= event.bookingId.totalAmount,
+        ).length
+
+        doc.text(`Total Events: ${totalEvents}`, 14, 40)
+        doc.text(`Total Expected Attendance: ${totalAttendance.toLocaleString()}`, 14, 48)
+        doc.text(`Total Revenue: ${totalRevenue.toLocaleString()}`, 14, 56)
+        doc.text(`Fully Paid Events: ${fullyPaidCount} (${Math.round((fullyPaidCount / totalEvents) * 100)}%)`, 14, 64)
+
+        // Prepare table data
+        const tableData = filteredEvents.map((event) => [
+          event.bookingId.response.venueRequest.eventName,
+          event.bookingId.response.venueRequest.venue ? event.bookingId.response.venueRequest.venue.name : "No Venue",
+          formatDateRange(event.bookingId.response.venueRequest.eventDates),
+          event.bookingId.response.venueRequest.expectedAttendance.toLocaleString(),
+          event.status,
+          event.bookingId.amountPaid >= event.bookingId.totalAmount ? "Fully Paid" : "Partially Paid",
+          event.bookingId.amountPaid.toLocaleString(),
+          event.bookingId.totalAmount.toLocaleString(),
+        ])
+
+        // Add the table to the PDF
+        autoTable(doc, {
+          startY: 75,
+          head: [["Event Name", "Venue", "Dates", "Attendance", "Status", "Payment", "Amount Paid", "Total Amount"]],
+          body: tableData,
+          headStyles: {
+            fillColor: [99, 102, 241], // Primary color
+            textColor: 255,
+            fontStyle: "bold",
+          },
+          alternateRowStyles: {
+            fillColor: [249, 250, 251], // Light background for alternate rows
+          },
+          styles: {
+            fontSize: 10,
+            cellPadding: 3,
+          },
+          columnStyles: {
+            0: { cellWidth: "auto" }, // Event Name
+            1: { cellWidth: "auto" }, // Venue
+            2: { cellWidth: "auto" }, // Dates
+            3: { cellWidth: 25 }, // Attendance
+            4: { cellWidth: 25 }, // Status
+            5: { cellWidth: 30 }, // Payment
+            6: { cellWidth: 25 }, // Amount Paid
+            7: { cellWidth: 25 }, // Total Amount
+          },
+        })
+
+        // Add status color indicators
+        doc.setFontSize(9)
+        const statusY = doc.lastAutoTable.finalY + 15
+
+        // Upcoming status
+        doc.setFillColor(99, 102, 241) // var(--color-upcoming)
+        doc.circle(20, statusY, 3, "F")
+        doc.text("Upcoming", 25, statusY + 1)
+
+        // Ongoing status
+        doc.setFillColor(245, 158, 11) // var(--color-ongoing)
+        doc.circle(60, statusY, 3, "F")
+        doc.text("Ongoing", 65, statusY + 1)
+
+        // Completed status
+        doc.setFillColor(16, 185, 129) // var(--color-completed)
+        doc.circle(100, statusY, 3, "F")
+        doc.text("Completed", 105, statusY + 1)
+
+        // Add footer with page numbers
+        const pageCount = doc.getNumberOfPages()
+        for (let i = 1; i <= pageCount; i++) {
+          doc.setPage(i)
+          doc.setFontSize(10)
+          doc.text(`Page ${i} of ${pageCount}`, doc.internal.pageSize.width / 2, doc.internal.pageSize.height - 10, {
+            align: "center",
+          })
+        }
+
+        // Save the PDF
+        doc.save(`events_report_${activeFilter.toLowerCase()}_${new Date().toISOString().split("T")[0]}.pdf`)
+      })
+    })
+  }
+
+  // Toggle filter panel
+  const toggleFilterPanel = () => {
+    setIsFilterOpen(!isFilterOpen)
+  }
 
   if (loading) {
     return (
@@ -411,7 +597,7 @@ function Events() {
           <p>Loading your events...</p>
         </div>
       </div>
-    );
+    )
   }
 
   // Error state
@@ -425,7 +611,7 @@ function Events() {
           <button onClick={() => window.location.reload()}>Try Again</button>
         </div>
       </div>
-    );
+    )
   }
 
   return (
@@ -434,13 +620,10 @@ function Events() {
       <header className="dashboard-header">
         <div className="header-content">
           <h1>Event Dashboard</h1>
-          <p className="subtitle">
-            Manage your upcoming, ongoing, and completed events
-          </p>
+          <p className="subtitle">Manage your upcoming, ongoing, and completed events</p>
         </div>
 
-        {/* Add the Create Event button in the header-actions div (around line 400) */}
-        {/* Find the header-actions div and add this button before the view-toggle div */}
+        {/* Add the Create Event button in the header-actions div */}
         <div className="header-actions">
           <button className="create-event-btn" onClick={fetchCompleteBookings}>
             <svg viewBox="0 0 24 24" className="create-icon">
@@ -451,9 +634,16 @@ function Events() {
 
           <div className="view-toggle">
             <button
-              className={`view-toggle-btn ${
-                viewMode === "grid" ? "active" : ""
-              }`}
+              className={`view-toggle-btn ${viewMode === "table" ? "active" : ""}`}
+              onClick={() => setViewMode("table")}
+              aria-label="Table view"
+            >
+              <svg viewBox="0 0 24 24" className="view-icon">
+                <path d="M3 10h18M3 14h18m-18-4v8a2 2 0 002 2h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v4z" />
+              </svg>
+            </button>
+            <button
+              className={`view-toggle-btn ${viewMode === "grid" ? "active" : ""}`}
               onClick={() => setViewMode("grid")}
               aria-label="Grid view"
             >
@@ -462,12 +652,10 @@ function Events() {
               </svg>
             </button>
             <button
-              className={`view-toggle-btn ${
-                viewMode === "timeline" ? "active" : ""
-              }`}
+              className={`view-toggle-btn ${viewMode === "timeline" ? "active" : ""}`}
               onClick={() => {
-                setViewMode("timeline");
-                setTimeout(scrollToCurrentTime, 100);
+                setViewMode("timeline")
+                setTimeout(scrollToCurrentTime, 100)
               }}
               aria-label="Timeline view"
             >
@@ -476,9 +664,7 @@ function Events() {
               </svg>
             </button>
             <button
-              className={`view-toggle-btn ${
-                viewMode === "calendar" ? "active" : ""
-              }`}
+              className={`view-toggle-btn ${viewMode === "calendar" ? "active" : ""}`}
               onClick={() => setViewMode("calendar")}
               aria-label="Calendar view"
             >
@@ -504,46 +690,173 @@ function Events() {
       </header>
 
       {/* Filters */}
-      <div className="event-filters">
-        <button
-          className={`filter-btn ${activeFilter === "All" ? "active" : ""}`}
-          onClick={() => setActiveFilter("All")}
-        >
-          All Events
-        </button>
-        <button
-          className={`filter-btn ${
-            activeFilter === "Upcoming" ? "active" : ""
-          }`}
-          onClick={() => setActiveFilter("Upcoming")}
-        >
-          Upcoming
-        </button>
-        <button
-          className={`filter-btn ${activeFilter === "Ongoing" ? "active" : ""}`}
-          onClick={() => setActiveFilter("Ongoing")}
-        >
-          Ongoing
-        </button>
-        <button
-          className={`filter-btn ${
-            activeFilter === "Completed" ? "active" : ""
-          }`}
-          onClick={() => setActiveFilter("Completed")}
-        >
-          Completed
-        </button>
+      <div className="event-filters-container">
+        <div className="event-filters">
+          <button
+            className={`filter-btn ${activeFilter === "All" ? "active" : ""}`}
+            onClick={() => setActiveFilter("All")}
+          >
+            All Events
+          </button>
+          <button
+            className={`filter-btn ${activeFilter === "Upcoming" ? "active" : ""}`}
+            onClick={() => setActiveFilter("Upcoming")}
+          >
+            Upcoming
+          </button>
+          <button
+            className={`filter-btn ${activeFilter === "Ongoing" ? "active" : ""}`}
+            onClick={() => setActiveFilter("Ongoing")}
+          >
+            Ongoing
+          </button>
+          <button
+            className={`filter-btn ${activeFilter === "Completed" ? "active" : ""}`}
+            onClick={() => setActiveFilter("Completed")}
+          >
+            Completed
+          </button>
+
+          <button className="filter-btn advanced-filter" onClick={toggleFilterPanel}>
+            <svg viewBox="0 0 24 24" className="filter-icon">
+              <path d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+            Advanced Filters
+          </button>
+
+          <div className="report-buttons">
+            <button className="generate-report-btn" onClick={generateReport}>
+              <svg viewBox="0 0 24 24" className="download-icon">
+                <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              CSV Report
+            </button>
+
+            <button className="generate-report-btn pdf-report-btn" onClick={generatePdfReport}>
+              <svg viewBox="0 0 24 24" className="pdf-icon">
+                <path d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+              </svg>
+              PDF Report
+            </button>
+          </div>
+        </div>
+
+        {isFilterOpen && (
+          <div className="advanced-filters-panel">
+            <div className="filter-group">
+              <label htmlFor="capacity-filter">Minimum Capacity:</label>
+              <input
+                id="capacity-filter"
+                type="number"
+                placeholder="Min. attendees"
+                value={capacityFilter}
+                onChange={(e) => setCapacityFilter(e.target.value)}
+                className="filter-input"
+              />
+            </div>
+
+            <div className="filter-group">
+              <label htmlFor="timeframe-filter">Timeframe (days):</label>
+              <input
+                id="timeframe-filter"
+                type="number"
+                placeholder="Next X days"
+                value={timeframeFilter}
+                onChange={(e) => setTimeframeFilter(e.target.value)}
+                className="filter-input"
+              />
+            </div>
+
+            <button
+              className="clear-filters-btn"
+              onClick={() => {
+                setCapacityFilter("")
+                setTimeframeFilter("")
+              }}
+            >
+              Clear Filters
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Event Count */}
       <div className="event-count">
         <p>
-          Showing{" "}
-          <span className="count-highlight">{filteredEvents.length}</span>
-          {activeFilter !== "All" ? ` ${activeFilter.toLowerCase()}` : ""}{" "}
-          events
+          Showing <span className="count-highlight">{filteredEvents.length}</span>
+          {activeFilter !== "All" ? ` ${activeFilter.toLowerCase()}` : ""} events
         </p>
       </div>
+
+      {/* Table View */}
+      {viewMode === "table" && (
+        <div className="events-table-container">
+          {filteredEvents.length > 0 ? (
+            <table className="events-table">
+              <thead>
+                <tr>
+                  <th className="status-column">Status</th>
+                  <th>Event Name</th>
+                  <th>Venue</th>
+                  <th>Date</th>
+                  <th className="attendance-column">Attendance</th>
+                  <th>Payment</th>
+                  <th className="actions-column">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredEvents.map((event) => (
+                  <tr key={event._id} className="event-row">
+                    <td>
+                      <div className="status-cell">
+                        <div
+                          className="status-indicator"
+                          style={{ backgroundColor: getStatusColor(event.status) }}
+                        ></div>
+                        <span className="status-text">{event.status}</span>
+                      </div>
+                    </td>
+                    <td className="event-name-cell">{event.bookingId.response.venueRequest.eventName}</td>
+                    <td>
+                      {event.bookingId.response.venueRequest.venue
+                        ? event.bookingId.response.venueRequest.venue.name
+                        : "No Venue"}
+                    </td>
+                    <td>{formatDateRange(event.bookingId.response.venueRequest.eventDates)}</td>
+                    <td className="attendance-cell">
+                      {event.bookingId.response.venueRequest.expectedAttendance.toLocaleString()}
+                    </td>
+                    <td>
+                      <span
+                        className={`payment-status-badge ${
+                          event.bookingId.amountPaid >= event.bookingId.totalAmount ? "paid" : "partial"
+                        }`}
+                      >
+                        {event.bookingId.amountPaid >= event.bookingId.totalAmount ? "Fully Paid" : "Partially Paid"}
+                      </span>
+                    </td>
+                    <td className="actions-cell">
+                      <button className="view-details-table-btn" onClick={() => handleEventClick(event)}>
+                        View Details
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="no-events">
+              <div className="no-events-icon">
+                <svg viewBox="0 0 24 24">
+                  <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <h3>No events found</h3>
+              <p>Try adjusting your filters or search criteria</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Grid View */}
       {viewMode === "grid" && (
@@ -563,13 +876,10 @@ function Events() {
 
                   {event.status === "Upcoming" &&
                     event.bookingId.response.venueRequest.eventDates &&
-                    event.bookingId.response.venueRequest.eventDates.length >
-                      0 && (
+                    event.bookingId.response.venueRequest.eventDates.length > 0 && (
                       <div className="days-counter">
                         <span className="days-number">
-                          {getDaysUntil(
-                            event.bookingId.response.venueRequest.eventDates[0]
-                          )}
+                          {getDaysUntil(event.bookingId.response.venueRequest.eventDates[0])}
                         </span>
                         <span className="days-label">days left</span>
                       </div>
@@ -579,23 +889,20 @@ function Events() {
                 <div className="event-card-image">
                   <img
                     src={
-                      event.bookingId.response.venueRequest.venue &&
-                      event.bookingId.response.venueRequest.venue.images
+                      event.bookingId.response.venueRequest.venue && event.bookingId.response.venueRequest.venue.images
                         ? event.bookingId.response.venueRequest.venue.images[0]
                         : "/placeholder.svg?height=200&width=300"
                     }
                     alt={event.bookingId.response.venueRequest.eventName}
                     onError={(e) => {
-                      e.target.src = "/placeholder.svg?height=200&width=300";
+                      e.target.src = "/placeholder.svg?height=200&width=300"
                     }}
                   />
                   <div className="image-overlay"></div>
                 </div>
 
                 <div className="event-card-content">
-                  <h3 className="event-name">
-                    {event.bookingId.response.venueRequest.eventName}
-                  </h3>
+                  <h3 className="event-name">{event.bookingId.response.venueRequest.eventName}</h3>
 
                   <div className="event-venue">
                     <svg viewBox="0 0 24 24" className="venue-icon">
@@ -613,21 +920,14 @@ function Events() {
                     <svg viewBox="0 0 24 24" className="date-icon">
                       <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
-                    <span>
-                      {formatDateRange(
-                        event.bookingId.response.venueRequest.eventDates
-                      )}
-                    </span>
+                    <span>{formatDateRange(event.bookingId.response.venueRequest.eventDates)}</span>
                   </div>
 
                   <div className="event-attendance">
                     <svg viewBox="0 0 24 24" className="attendance-icon">
                       <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
-                    <span>
-                      {event.bookingId.response.venueRequest.expectedAttendance.toLocaleString()}{" "}
-                      attendees
-                    </span>
+                    <span>{event.bookingId.response.venueRequest.expectedAttendance.toLocaleString()} attendees</span>
                   </div>
                 </div>
 
@@ -636,15 +936,10 @@ function Events() {
                     <span className="payment-label">Payment:</span>
                     <span
                       className={`payment-status ${
-                        event.bookingId.amountPaid >=
-                        event.bookingId.totalAmount
-                          ? "paid"
-                          : "partial"
+                        event.bookingId.amountPaid >= event.bookingId.totalAmount ? "paid" : "partial"
                       }`}
                     >
-                      {event.bookingId.amountPaid >= event.bookingId.totalAmount
-                        ? "Fully Paid"
-                        : "Partially Paid"}
+                      {event.bookingId.amountPaid >= event.bookingId.totalAmount ? "Fully Paid" : "Partially Paid"}
                     </span>
                   </div>
 
@@ -675,10 +970,7 @@ function Events() {
       {viewMode === "timeline" && (
         <div className="events-timeline-container">
           <div className="timeline-controls">
-            <button
-              className="timeline-control-btn"
-              onClick={scrollToCurrentTime}
-            >
+            <button className="timeline-control-btn" onClick={scrollToCurrentTime}>
               <svg viewBox="0 0 24 24" className="control-icon">
                 <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
@@ -690,12 +982,7 @@ function Events() {
             <div
               className="timeline-now-indicator"
               style={{
-                left: `${
-                  ((timeIndicator.getHours() * 60 +
-                    timeIndicator.getMinutes()) /
-                    1440) *
-                  100
-                }%`,
+                left: `${((timeIndicator.getHours() * 60 + timeIndicator.getMinutes()) / 1440) * 100}%`,
               }}
             >
               <div className="now-indicator-line"></div>
@@ -706,13 +993,7 @@ function Events() {
               {Array.from({ length: 24 }).map((_, i) => (
                 <div key={i} className="timeline-hour">
                   <div className="hour-label">
-                    {i === 0
-                      ? "12 AM"
-                      : i < 12
-                      ? `${i} AM`
-                      : i === 12
-                      ? "12 PM"
-                      : `${i - 12} PM`}
+                    {i === 0 ? "12 AM" : i < 12 ? `${i} AM` : i === 12 ? "12 PM" : `${i - 12} PM`}
                   </div>
                 </div>
               ))}
@@ -722,23 +1003,17 @@ function Events() {
               <div className="timeline-events">
                 {filteredEvents.map((event) => {
                   // Calculate position and width based on event dates
-                  const firstDate = new Date(
-                    event.bookingId.response.venueRequest.eventDates[0]
-                  );
+                  const firstDate = new Date(event.bookingId.response.venueRequest.eventDates[0])
                   const lastDate = new Date(
                     event.bookingId.response.venueRequest.eventDates[
-                      event.bookingId.response.venueRequest.eventDates.length -
-                        1
-                    ]
-                  );
+                      event.bookingId.response.venueRequest.eventDates.length - 1
+                    ],
+                  )
 
                   // For demo purposes, we'll position events along the timeline
                   // In a real app, you'd calculate this based on actual dates
-                  const startHour = firstDate.getHours();
-                  const duration =
-                    getEventDuration(
-                      event.bookingId.response.venueRequest.eventDates
-                    ) * 3; // Scale for visibility
+                  const startHour = firstDate.getHours()
+                  const duration = getEventDuration(event.bookingId.response.venueRequest.eventDates) * 3 // Scale for visibility
 
                   return (
                     <div
@@ -751,9 +1026,7 @@ function Events() {
                       onClick={() => handleEventClick(event)}
                     >
                       <div className="timeline-event-content">
-                        <h4>
-                          {event.bookingId.response.venueRequest.eventName}
-                        </h4>
+                        <h4>{event.bookingId.response.venueRequest.eventName}</h4>
                         <div className="timeline-event-details">
                           <span className="timeline-venue">
                             {event.bookingId.response.venueRequest.venue
@@ -761,14 +1034,12 @@ function Events() {
                               : "No Venue"}
                           </span>
                           <span className="timeline-date">
-                            {formatDateRange(
-                              event.bookingId.response.venueRequest.eventDates
-                            )}
+                            {formatDateRange(event.bookingId.response.venueRequest.eventDates)}
                           </span>
                         </div>
                       </div>
                     </div>
-                  );
+                  )
                 })}
               </div>
             ) : (
@@ -804,36 +1075,24 @@ function Events() {
               {Array.from({ length: 35 }).map((_, i) => {
                 // For demo purposes, we'll randomly assign events to days
                 // In a real app, you'd match actual event dates to calendar days
-                const hasEvent = i % 7 === 2 || i % 5 === 0;
-                const isToday = i === 15; // Arbitrary "today" for demo
+                const hasEvent = i % 7 === 2 || i % 5 === 0
+                const isToday = i === 15 // Arbitrary "today" for demo
 
                 return (
-                  <div
-                    key={i}
-                    className={`calendar-cell ${isToday ? "today" : ""}`}
-                  >
+                  <div key={i} className={`calendar-cell ${isToday ? "today" : ""}`}>
                     <div className="calendar-date">{i + 1}</div>
                     {hasEvent && filteredEvents.length > 0 && (
                       <div
-                        className={`calendar-event ${filteredEvents[
-                          i % filteredEvents.length
-                        ].status.toLowerCase()}`}
-                        onClick={() =>
-                          handleEventClick(
-                            filteredEvents[i % filteredEvents.length]
-                          )
-                        }
+                        className={`calendar-event ${filteredEvents[i % filteredEvents.length].status.toLowerCase()}`}
+                        onClick={() => handleEventClick(filteredEvents[i % filteredEvents.length])}
                       >
                         <span className="calendar-event-name">
-                          {
-                            filteredEvents[i % filteredEvents.length].bookingId
-                              .response.venueRequest.eventName
-                          }
+                          {filteredEvents[i % filteredEvents.length].bookingId.response.venueRequest.eventName}
                         </span>
                       </div>
                     )}
                   </div>
-                );
+                )
               })}
             </div>
           </div>
@@ -868,15 +1127,24 @@ function Events() {
                 src={
                   selectedEvent.bookingId.response.venueRequest.venue &&
                   selectedEvent.bookingId.response.venueRequest.venue.images
-                    ? selectedEvent.bookingId.response.venueRequest.venue
-                        .images[0]
+                    ? selectedEvent.bookingId.response.venueRequest.venue.images[0]
                     : "/placeholder.svg?height=300&width=600"
                 }
                 alt={selectedEvent.bookingId.response.venueRequest.eventName}
                 onError={(e) => {
-                  e.target.src = "/placeholder.svg?height=300&width=600";
+                  e.target.src = "/placeholder.svg?height=300&width=600"
                 }}
               />
+
+              {/* Countdown overlay for upcoming events */}
+              {selectedEvent.status === "Upcoming" && daysRemaining > 0 && (
+                <div className="countdown-overlay">
+                  <div className="countdown-container">
+                    <div className="countdown-value">{daysRemaining}</div>
+                    <div className="countdown-label">{daysRemaining === 1 ? "Day" : "Days"} Remaining</div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="modal-body">
@@ -892,19 +1160,20 @@ function Events() {
                     </div>
                     <div className="detail-content">
                       <h4>Date & Time</h4>
-                      <p>
-                        {formatDateRange(
-                          selectedEvent.bookingId.response.venueRequest
-                            .eventDates
-                        )}
-                      </p>
+                      <p>{formatDateRange(selectedEvent.bookingId.response.venueRequest.eventDates)}</p>
                       <p className="detail-meta">
-                        {getEventDuration(
-                          selectedEvent.bookingId.response.venueRequest
-                            .eventDates
-                        )}{" "}
-                        day(s)
+                        {getEventDuration(selectedEvent.bookingId.response.venueRequest.eventDates)} day(s)
                       </p>
+
+                      {/* Days remaining counter for upcoming events */}
+                      {selectedEvent.status === "Upcoming" && daysRemaining > 0 && (
+                        <p className="detail-countdown">
+                          <strong>
+                            {daysRemaining} {daysRemaining === 1 ? "day" : "days"}
+                          </strong>{" "}
+                          until event starts
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -919,14 +1188,12 @@ function Events() {
                       <h4>Venue</h4>
                       <p>
                         {selectedEvent.bookingId.response.venueRequest.venue
-                          ? selectedEvent.bookingId.response.venueRequest.venue
-                              .name
+                          ? selectedEvent.bookingId.response.venueRequest.venue.name
                           : "No Venue"}
                       </p>
                       <p className="detail-meta">
                         {selectedEvent.bookingId.response.venueRequest.venue
-                          ? selectedEvent.bookingId.response.venueRequest.venue
-                              .location
+                          ? selectedEvent.bookingId.response.venueRequest.venue.location
                           : "Location not specified"}
                       </p>
                     </div>
@@ -940,18 +1207,13 @@ function Events() {
                     </div>
                     <div className="detail-content">
                       <h4>Attendance</h4>
-                      <p>
-                        {selectedEvent.bookingId.response.venueRequest.expectedAttendance.toLocaleString()}{" "}
-                        people
-                      </p>
+                      <p>{selectedEvent.bookingId.response.venueRequest.expectedAttendance.toLocaleString()} people</p>
                       {selectedEvent.bookingId.response.venueRequest.venue && (
                         <p className="detail-meta">
                           {Math.round(
-                            (selectedEvent.bookingId.response.venueRequest
-                              .expectedAttendance /
-                              selectedEvent.bookingId.response.venueRequest
-                                .venue.capacity) *
-                              100
+                            (selectedEvent.bookingId.response.venueRequest.expectedAttendance /
+                              selectedEvent.bookingId.response.venueRequest.venue.capacity) *
+                              100,
                           )}
                           % of venue capacity
                         </p>
@@ -968,8 +1230,7 @@ function Events() {
                     <div className="detail-content">
                       <h4>Payment</h4>
                       <p>
-                        {selectedEvent.bookingId.amountPaid >=
-                        selectedEvent.bookingId.totalAmount
+                        {selectedEvent.bookingId.amountPaid >= selectedEvent.bookingId.totalAmount
                           ? "Fully Paid"
                           : `${selectedEvent.bookingId.amountPaid}/${selectedEvent.bookingId.totalAmount} Paid`}
                       </p>
@@ -978,9 +1239,7 @@ function Events() {
                           className="payment-progress-bar"
                           style={{
                             width: `${
-                              (selectedEvent.bookingId.amountPaid /
-                                selectedEvent.bookingId.totalAmount) *
-                              100
+                              (selectedEvent.bookingId.amountPaid / selectedEvent.bookingId.totalAmount) * 100
                             }%`,
                           }}
                         ></div>
@@ -993,52 +1252,38 @@ function Events() {
               <div className="detail-section">
                 <h3 className="section-title">Description</h3>
                 <p className="event-description">
-                  {selectedEvent.bookingId.response.venueRequest
-                    .eventDescription || "No description provided."}
+                  {selectedEvent.bookingId.response.venueRequest.eventDescription || "No description provided."}
                 </p>
               </div>
 
               <div className="detail-section">
                 <h3 className="section-title">Payment Details</h3>
                 <div className="payment-details">
-                  {selectedEvent.bookingId.paymentDetails &&
-                  selectedEvent.bookingId.paymentDetails.length > 0 ? (
+                  {selectedEvent.bookingId.paymentDetails && selectedEvent.bookingId.paymentDetails.length > 0 ? (
                     <div className="payment-list">
-                      {selectedEvent.bookingId.paymentDetails.map(
-                        (payment, index) => (
-                          <div key={index} className="payment-item">
-                            <div className="payment-method">
-                              <div
-                                className={`payment-method-icon ${payment.paymentMethod.toLowerCase()}`}
-                              >
-                                {payment.paymentMethod === "M-Pesa" ? "M" : "P"}
-                              </div>
-                              <span>{payment.paymentMethod}</span>
+                      {selectedEvent.bookingId.paymentDetails.map((payment, index) => (
+                        <div key={index} className="payment-item">
+                          <div className="payment-method">
+                            <div className={`payment-method-icon ${payment.paymentMethod.toLowerCase()}`}>
+                              {payment.paymentMethod === "M-Pesa" ? "M" : "P"}
                             </div>
-                            <div className="payment-info">
-                              <div className="payment-transaction">
-                                <span className="transaction-label">
-                                  Transaction ID:
-                                </span>
-                                <span className="transaction-id">
-                                  {payment.transactionId}
-                                </span>
-                              </div>
-                              <div className="payment-date">
-                                <span className="date-label">Date:</span>
-                                <span className="date-value">
-                                  {formatDate(payment.timestamp)}
-                                </span>
-                              </div>
+                            <span>{payment.paymentMethod}</span>
+                          </div>
+                          <div className="payment-info">
+                            <div className="payment-transaction">
+                              <span className="transaction-label">Transaction ID:</span>
+                              <span className="transaction-id">{payment.transactionId}</span>
                             </div>
-                            <div className="payment-amount">
-                              {payment.amount
-                                ? `KSH ${payment.amount}`
-                                : "Amount not specified"}
+                            <div className="payment-date">
+                              <span className="date-label">Date:</span>
+                              <span className="date-value">{formatDate(payment.timestamp)}</span>
                             </div>
                           </div>
-                        )
-                      )}
+                          <div className="payment-amount">
+                            {payment.amount ? `KSH ${payment.amount}` : "Amount not specified"}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   ) : (
                     <p className="no-payments">No payment details available</p>
@@ -1048,18 +1293,15 @@ function Events() {
             </div>
 
             <div className="modal-footer">
-              <button
-                className="modal-action-btn secondary"
-                onClick={closeEventDetail}
-              >
+              <button className="modal-action-btn secondary" onClick={closeEventDetail}>
                 Close
               </button>
               <button className="modal-action-btn primary">
                 {selectedEvent.status === "Upcoming"
                   ? "Edit Event"
                   : selectedEvent.status === "Ongoing"
-                  ? "Manage Event"
-                  : "View Report"}
+                    ? "Manage Event"
+                    : "View Report"}
               </button>
             </div>
           </div>
@@ -1069,15 +1311,9 @@ function Events() {
       {/* Booking Selection Modal */}
       {isBookingModalOpen && (
         <div className="booking-modal">
-          <div
-            className="modal-backdrop"
-            onClick={() => setIsBookingModalOpen(false)}
-          ></div>
+          <div className="modal-backdrop" onClick={() => setIsBookingModalOpen(false)}></div>
           <div className="modal-content">
-            <button
-              className="modal-close-btn"
-              onClick={() => setIsBookingModalOpen(false)}
-            >
+            <button className="modal-close-btn" onClick={() => setIsBookingModalOpen(false)}>
               <svg viewBox="0 0 24 24">
                 <path d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -1102,29 +1338,21 @@ function Events() {
                     <div
                       key={booking._id}
                       className={`booking-item ${
-                        selectedBooking && selectedBooking._id === booking._id
-                          ? "selected"
-                          : ""
+                        selectedBooking && selectedBooking._id === booking._id ? "selected" : ""
                       }`}
                       onClick={() => setSelectedBooking(booking)}
                     >
                       <div className="booking-venue">
                         <img
                           src={
-                            booking.response.venueRequest.venue &&
-                            booking.response.venueRequest.venue.images
+                            booking.response.venueRequest.venue && booking.response.venueRequest.venue.images
                               ? booking.response.venueRequest.venue.images[0]
                               : "/placeholder.svg?height=60&width=60"
                           }
-                          alt={
-                            booking.response.venueRequest.venue
-                              ? booking.response.venueRequest.venue.name
-                              : "Venue"
-                          }
+                          alt={booking.response.venueRequest.venue ? booking.response.venueRequest.venue.name : "Venue"}
                           className="venue-thumbnail"
                           onError={(e) => {
-                            e.target.src =
-                              "/placeholder.svg?height=60&width=60";
+                            e.target.src = "/placeholder.svg?height=60&width=60"
                           }}
                         />
                         <div className="venue-info">
@@ -1142,46 +1370,30 @@ function Events() {
                           <svg viewBox="0 0 24 24" className="date-icon">
                             <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                           </svg>
-                          <span>
-                            {formatDateRange(
-                              booking.response.venueRequest.eventDates
-                            )}
-                          </span>
+                          <span>{formatDateRange(booking.response.venueRequest.eventDates)}</span>
                         </div>
 
                         <div className="booking-attendance">
                           <svg viewBox="0 0 24 24" className="attendance-icon">
                             <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                           </svg>
-                          <span>
-                            {booking.response.venueRequest.expectedAttendance.toLocaleString()}{" "}
-                            attendees
-                          </span>
+                          <span>{booking.response.venueRequest.expectedAttendance.toLocaleString()} attendees</span>
                         </div>
                       </div>
 
                       <div className="booking-payment">
                         <span className="payment-label">Payment:</span>
                         <span
-                          className={`payment-status ${
-                            booking.amountPaid >= booking.totalAmount
-                              ? "paid"
-                              : "partial"
-                          }`}
+                          className={`payment-status ${booking.amountPaid >= booking.totalAmount ? "paid" : "partial"}`}
                         >
-                          {booking.amountPaid >= booking.totalAmount
-                            ? "Fully Paid"
-                            : "Partially Paid"}
+                          {booking.amountPaid >= booking.totalAmount ? "Fully Paid" : "Partially Paid"}
                         </span>
                       </div>
 
                       <div className="booking-select">
                         <div
                           className={`select-indicator ${
-                            selectedBooking &&
-                            selectedBooking._id === booking._id
-                              ? "selected"
-                              : ""
+                            selectedBooking && selectedBooking._id === booking._id ? "selected" : ""
                           }`}
                         ></div>
                       </div>
@@ -1196,19 +1408,13 @@ function Events() {
                     </svg>
                   </div>
                   <h3>No eligible bookings found</h3>
-                  <p>
-                    You need confirmed bookings that haven't been assigned to
-                    events yet
-                  </p>
+                  <p>You need confirmed bookings that haven't been assigned to events yet</p>
                 </div>
               )}
             </div>
 
             <div className="modal-footer">
-              <button
-                className="modal-action-btn secondary"
-                onClick={() => setIsBookingModalOpen(false)}
-              >
+              <button className="modal-action-btn secondary" onClick={() => setIsBookingModalOpen(false)}>
                 Cancel
               </button>
               <button
@@ -1229,6 +1435,7 @@ function Events() {
           --color-primary: #6366f1;
           --color-primary-light: #818cf8;
           --color-primary-dark: #4f46e5;
+          --color-primary-rgb: 99, 102, 241;
           --color-secondary: #f59e0b;
           --color-secondary-light: #fbbf24;
           --color-secondary-dark: #d97706;
@@ -1428,10 +1635,14 @@ function Events() {
         }
 
         /* Event Filters */
+        .event-filters-container {
+          margin-bottom: var(--spacing-lg);
+        }
+        
         .event-filters {
           display: flex;
           gap: var(--spacing-sm);
-          margin-bottom: var(--spacing-lg);
+          margin-bottom: var(--spacing-sm);
           overflow-x: auto;
           padding-bottom: var(--spacing-sm);
           -ms-overflow-style: none;
@@ -1464,6 +1675,82 @@ function Events() {
           background-color: var(--color-primary);
           color: white;
         }
+        
+        .filter-btn.advanced-filter,
+        .generate-report-btn {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          background-color: var(--color-surface);
+          border: 1px solid var(--color-border);
+        }
+        
+        .filter-icon,
+        .download-icon {
+          width: 16px;
+          height: 16px;
+          stroke: currentColor;
+          stroke-width: 2;
+          fill: none;
+        }
+        
+        .generate-report-btn {
+          margin-left: auto;
+          background-color: var(--color-surface);
+          color: var(--color-text-secondary);
+        }
+        
+        .generate-report-btn:hover {
+          background-color: var(--color-surface-hover);
+          border-color: var(--color-text-tertiary);
+        }
+        
+        .advanced-filters-panel {
+          background-color: var(--color-surface);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
+          padding: var(--spacing-md);
+          margin-bottom: var(--spacing-md);
+          display: flex;
+          flex-wrap: wrap;
+          gap: var(--spacing-md);
+          align-items: flex-end;
+        }
+        
+        .filter-group {
+          display: flex;
+          flex-direction: column;
+          gap: var(--spacing-xs);
+          flex: 1;
+          min-width: 200px;
+        }
+        
+        .filter-group label {
+          font-size: 0.875rem;
+          color: var(--color-text-secondary);
+        }
+        
+        .filter-input {
+          width: 100%;
+          padding: var(--spacing-sm);
+          border-radius: var(--radius-md);
+          border: 1px solid var(--color-border);
+          font-size: 0.875rem;
+        }
+        
+        .clear-filters-btn {
+          padding: var(--spacing-sm) var(--spacing-md);
+          background-color: var(--color-surface);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
+          font-size: 0.875rem;
+          cursor: pointer;
+          transition: all var(--transition-fast);
+        }
+        
+        .clear-filters-btn:hover {
+          background-color: var(--color-surface-hover);
+        }
 
         /* Event Count */
         .event-count {
@@ -1475,6 +1762,123 @@ function Events() {
         .count-highlight {
           font-weight: 600;
           color: var(--color-primary);
+        }
+        
+        /* Table View */
+        .events-table-container {
+          background-color: var(--color-surface);
+          border-radius: var(--radius-lg);
+          box-shadow: var(--shadow-md);
+          overflow: hidden;
+          margin-bottom: var(--spacing-lg);
+        }
+        
+        .events-table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        
+        .events-table th,
+        .events-table td {
+          padding: var(--spacing-md);
+          text-align: left;
+          border-bottom: 1px solid var(--color-border-light);
+        }
+        
+        .events-table th {
+          font-weight: 600;
+          color: var(--color-text-secondary);
+          background-color: var(--color-surface-hover);
+          font-size: 0.875rem;
+        }
+        
+        .events-table tr:last-child td {
+          border-bottom: none;
+        }
+        
+        .event-row {
+          transition: background-color var(--transition-fast);
+          cursor: pointer;
+        }
+        
+        .event-row:hover {
+          background-color: var(--color-surface-hover);
+        }
+        
+        .status-column {
+          width: 120px;
+        }
+        
+        .attendance-column {
+          text-align: right;
+        }
+        
+        .actions-column {
+          text-align: right;
+          width: 120px;
+        }
+        
+        .status-cell {
+          display: flex;
+          align-items: center;
+          gap: var(--spacing-sm);
+        }
+        
+        .status-indicator {
+          width: 10px;
+          height: 10px;
+          border-radius: var(--radius-full);
+        }
+        
+        .status-text {
+          font-size: 0.75rem;
+          font-weight: 600;
+        }
+        
+        .event-name-cell {
+          font-weight: 500;
+        }
+        
+        .attendance-cell {
+          text-align: right;
+        }
+        
+        .actions-cell {
+          text-align: right;
+        }
+        
+        .view-details-table-btn {
+          padding: var(--spacing-xs) var(--spacing-md);
+          background-color: transparent;
+          border: none;
+          color: var(--color-primary);
+          font-size: 0.875rem;
+          font-weight: 500;
+          cursor: pointer;
+          border-radius: var(--radius-md);
+          transition: all var(--transition-fast);
+        }
+        
+        .view-details-table-btn:hover {
+          background-color: rgba(var(--color-primary-rgb), 0.1);
+        }
+        
+        .payment-status-badge {
+          display: inline-flex;
+          padding: 0.25rem 0.5rem;
+          border-radius: var(--radius-full);
+          font-size: 0.75rem;
+          font-weight: 500;
+        }
+        
+        .payment-status-badge.paid {
+          background-color: rgba(16, 185, 129, 0.1);
+          color: var(--color-completed);
+        }
+        
+        .payment-status-badge.partial {
+          background-color: rgba(245, 158, 11, 0.1);
+          color: var(--color-ongoing);
         }
 
         /* Events Grid */
@@ -2080,7 +2484,7 @@ function Events() {
             opacity var(--transition-normal);
         }
 
-        .event-detail-modal.open .modal-content {
+        .event-detail-modal.open {
           transform: translateY(0);
           opacity: 1;
         }
@@ -2143,12 +2547,69 @@ function Events() {
           width: 100%;
           height: 240px;
           overflow: hidden;
+          position: relative;
         }
 
         .modal-image img {
           width: 100%;
           height: 100%;
           object-fit: cover;
+        }
+        
+        /* Countdown overlay styles */
+          overflow: hidden;
+          position: relative;
+        }
+
+        .modal-image img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+        
+        /* Countdown overlay styles */
+        .countdown-overlay {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.4);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        
+        .countdown-container {
+          background: rgba(99, 102, 241, 0.9);
+          padding: 1rem 2rem;
+          border-radius: var(--radius-lg);
+          text-align: center;
+          color: white;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+          animation: pulse 2s infinite ease-in-out;
+        }
+        
+        .countdown-value {
+          font-size: 3rem;
+          font-weight: 700;
+          line-height: 1;
+        }
+        
+        .countdown-label {
+          font-size: 1rem;
+          font-weight: 500;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+        
+        @keyframes pulse {
+          0%, 100% {
+            transform: scale(1);
+          }
+          50% {
+            transform: scale(1.05);
+          }
         }
 
         .modal-body {
@@ -2236,6 +2697,16 @@ function Events() {
           font-size: 0.75rem;
           color: var(--color-text-tertiary);
           margin-top: var(--spacing-xs);
+        }
+        
+        .detail-countdown {
+          margin-top: var(--spacing-sm);
+          font-size: 0.875rem;
+          color: var(--color-primary);
+          background-color: rgba(99, 102, 241, 0.1);
+          padding: 0.25rem 0.5rem;
+          border-radius: var(--radius-md);
+          display: inline-block;
         }
 
         .event-description {
@@ -2807,9 +3278,60 @@ function Events() {
             transform: translateY(0);
           }
         }
+
+        /* Add these styles to the CSS section
+        Find the .generate-report-btn style and add these styles after it */
+
+        .report-buttons {
+          display: flex;
+          gap: var(--spacing-sm);
+          margin-left: auto;
+        }
+
+        .generate-report-btn {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          background-color: var(--color-surface);
+          border: 1px solid var(--color-border);
+          color: var(--color-text-secondary);
+          padding: var(--spacing-sm) var(--spacing-md);
+          border-radius: var(--radius-full);
+          font-size: 0.875rem;
+          font-weight: 500;
+          cursor: pointer;
+          white-space: nowrap;
+          transition: all var(--transition-fast);
+        }
+
+        .generate-report-btn:hover {
+          background-color: var(--color-surface-hover);
+          border-color: var(--color-text-tertiary);
+        }
+
+        .pdf-report-btn {
+          background-color: #f97316;
+          color: white;
+          border-color: #f97316;
+        }
+
+        .pdf-report-btn:hover {
+          background-color: #ea580c;
+          border-color: #ea580c;
+          color: white;
+        }
+
+        .pdf-icon {
+          width: 16px;
+          height: 16px;
+          stroke: currentColor;
+          stroke-width: 2;
+          fill: none;
+        }
       `}</style>
     </div>
-  );
+  )
 }
 
-export default Events;
+export default Events
+

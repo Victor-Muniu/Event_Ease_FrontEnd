@@ -225,9 +225,6 @@ export default function BookingFinalization() {
       setTimeout(() => {
         setRefreshTrigger((prev) => prev + 1)
         setShowPaymentForm(false)
-
-        // Redirect to the bookings page
-        router.push("/bookings")
       }, 2000)
 
       return true
