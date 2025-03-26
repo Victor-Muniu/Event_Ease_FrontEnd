@@ -4,11 +4,10 @@ import {
   Calendar,
   Users,
   CreditCard,
-  HelpCircle,
   Settings,
   LogOut,
   ChevronDown,
-  Bell,
+
   Building,
 } from "lucide-react"
 import axios from "axios"
@@ -73,7 +72,7 @@ export default function Sidebar() {
                 My Events
               </a>
               <a href="/create" className="nav-item">
-                Create Event
+                Finalize Booking
               </a>
               <a href="/generate_tickets" className="nav-item">
                 Generate Tickets
@@ -123,9 +122,7 @@ export default function Sidebar() {
               <a href="/attendees" className="nav-item">
                 Manage Attendees
               </a>
-              <a href="/tickets" className="nav-item">
-                Ticket Sales
-              </a>
+              
             </div>
           )}
         </div>
@@ -145,25 +142,17 @@ export default function Sidebar() {
               <a href="/payment" className="nav-item">
                 Payments
               </a>
-              <a href="/analytics" className="nav-item">
-                Analytics
-              </a>
+    
             </div>
           )}
         </div>
 
         {/* Notifications */}
-        <a href="/notifications" className="nav-item">
-          <Bell size={20} />
-          Notifications
-        </a>
+        
       </nav>
 
       <div className="bottom-section">
-        <a href="/help" className="nav-item">
-          <HelpCircle size={20} />
-          Help Center
-        </a>
+       
 
         <a href="/settings" className="nav-item">
           <Settings size={20} />

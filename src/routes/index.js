@@ -13,6 +13,8 @@ import PaymentPage from "../pages/PaymentPage";
 import Events from "../pages/Events";
 import EventPage from "../pages/EventPage";
 import Organizers from "../pages/Organizers";
+import CreateTickets from "../pages/CreateTickets";
+import AttendeeTracker from "../pages/AttendeeTracker";
 export const router = createBrowserRouter([
   {
     path: "/",
@@ -121,6 +123,26 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: <Events />,
+      },
+    ],
+  },
+  {
+    path: "/generate_tickets",
+    element: <ProtectedRoute element={<MainLayout />}/>,
+    children: [
+      {
+        index: true,
+        element: <CreateTickets />
+      },
+    ],
+  },
+  {
+    path: "/attendees",
+    element: <ProtectedRoute element={<MainLayout />}/>,
+    children: [
+      {
+        index: true,
+        element: <AttendeeTracker />
       },
     ],
   },

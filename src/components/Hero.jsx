@@ -12,11 +12,11 @@ export default function Hero() {
           </p>
 
           <div className="hero-cta">
-            <a href="/signup?type=attendee" className="cta-button attendee">
+            <a href="/upcoming" className="cta-button attendee">
               Find Events
             </a>
             <a href="/login" className="cta-button organizer">
-              Create Events
+              Create Events / Login
             </a>
           </div>
 

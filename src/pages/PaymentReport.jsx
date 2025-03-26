@@ -330,10 +330,280 @@ export default function PaymentReport() {
   }
 
   // Handle export
-  const handleExport = (format) => {
-    // In a real app, this would generate and download a file
-    console.log(`Exporting in ${format} format...`)
-    setShowExportOptions(false)
+  const handleExport = async (format) => {
+    setIsDownloading(true)
+
+    try {
+      // Prepare the data to be exported based on current filters
+      const dataToExport = {
+        reportType: "Payment Report",
+        generatedAt: new Date().toISOString(),
+        filters: {
+          status: statusFilter,
+          searchTerm: searchTerm,
+          dateRange: {
+            start: dateRange.start ? dateRange.start.toISOString() : null,
+            end: dateRange.end ? dateRange.end.toISOString() : null,
+          },
+        },
+        summary: summaryData,
+        transactions: filteredBookings.map((booking) => ({
+          id: booking._id,
+          eventName: booking.response?.venueRequest?.eventName || "N/A",
+          venueName: booking.response?.venueRequest?.venue?.name || "N/A",
+          date: formatDate(booking.createdAt),
+          totalAmount: formatCurrency(booking.totalAmount),
+          amountPaid: formatCurrency(booking.amountPaid),
+          outstanding: formatCurrency(booking.totalAmount - booking.amountPaid),
+          status: booking.status,
+          paymentDetails:
+            booking.paymentDetails?.map((payment) => ({
+              method: payment.paymentMethod,
+              amount:
+                payment.paymentMethod === "PayPal"
+                  ? `${formatCurrency(payment.amount, "THB")} → ${formatCurrency(convertCurrency(payment.amount, payment.paymentMethod))}`
+                  : formatCurrency(payment.amount),
+              transactionId: payment.transactionId,
+              date: formatDate(payment.timestamp),
+            })) || [],
+        })),
+      }
+
+      if (format === "csv") {
+        // Generate CSV
+        let csvContent = "data:text/csv;charset=utf-8,"
+
+        // Add report header
+        csvContent += `Payment Report - Generated on ${new Date().toLocaleString()}\r\n`
+        csvContent += `Filters: Status=${statusFilter}, Search="${searchTerm}", Date Range=${dateRange.start ? formatDate(dateRange.start) : "Any"} to ${dateRange.end ? formatDate(dateRange.end) : "Any"}\r\n\r\n`
+
+        // Add summary section
+        csvContent += "SUMMARY\r\n"
+        csvContent += `Total Bookings,${summaryData.totalBookings}\r\n`
+        csvContent += `Total Amount,${formatCurrency(summaryData.totalAmount)}\r\n`
+        csvContent += `Amount Paid,${formatCurrency(summaryData.amountPaid)}\r\n`
+        csvContent += `Outstanding,${formatCurrency(summaryData.outstanding)}\r\n`
+        csvContent += `Confirmed Bookings,${summaryData.confirmedBookings}\r\n`
+        csvContent += `Tentative Bookings,${summaryData.tentativeBookings}\r\n\r\n`
+
+        // Add transactions header
+        csvContent += "TRANSACTIONS\r\n"
+        csvContent += "ID,Event Name,Venue,Date,Total Amount,Amount Paid,Outstanding,Status\r\n"
+
+        // Add transaction data
+        filteredBookings.forEach((booking) => {
+          csvContent +=
+            [
+              booking._id,
+              `"${booking.response?.venueRequest?.eventName || "N/A"}"`,
+              `"${booking.response?.venueRequest?.venue?.name || "N/A"}"`,
+              formatDate(booking.createdAt),
+              booking.totalAmount,
+              booking.amountPaid,
+              booking.totalAmount - booking.amountPaid,
+              booking.status,
+            ].join(",") + "\r\n"
+        })
+
+        // Create download link
+        const encodedUri = encodeURI(csvContent)
+        const link = document.createElement("a")
+        link.setAttribute("href", encodedUri)
+        link.setAttribute("download", `payment_report_${new Date().toISOString().split("T")[0]}.csv`)
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      } else if (format === "excel") {
+        // For Excel, we'll use a CSV approach that Excel can open
+        // This is a simplified approach - for a more robust Excel file, you'd need a library like SheetJS
+        let csvContent = "data:application/vnd.ms-excel;charset=utf-8,"
+
+        // Add report header
+        csvContent += `Payment Report - Generated on ${new Date().toLocaleString()}\r\n`
+        csvContent += `Filters: Status=${statusFilter}, Search="${searchTerm}", Date Range=${dateRange.start ? formatDate(dateRange.start) : "Any"} to ${dateRange.end ? formatDate(dateRange.end) : "Any"}\r\n\r\n`
+
+        // Add summary section
+        csvContent += "SUMMARY\r\n"
+        csvContent += `Total Bookings,${summaryData.totalBookings}\r\n`
+        csvContent += `Total Amount,${formatCurrency(summaryData.totalAmount)}\r\n`
+        csvContent += `Amount Paid,${formatCurrency(summaryData.amountPaid)}\r\n`
+        csvContent += `Outstanding,${formatCurrency(summaryData.outstanding)}\r\n`
+        csvContent += `Confirmed Bookings,${summaryData.confirmedBookings}\r\n`
+        csvContent += `Tentative Bookings,${summaryData.tentativeBookings}\r\n\r\n`
+
+        // Add transactions header
+        csvContent += "TRANSACTIONS\r\n"
+        csvContent += "ID,Event Name,Venue,Date,Total Amount,Amount Paid,Outstanding,Status\r\n"
+
+        // Add transaction data
+        filteredBookings.forEach((booking) => {
+          csvContent +=
+            [
+              booking._id,
+              `"${booking.response?.venueRequest?.eventName || "N/A"}"`,
+              `"${booking.response?.venueRequest?.venue?.name || "N/A"}"`,
+              formatDate(booking.createdAt),
+              booking.totalAmount,
+              booking.amountPaid,
+              booking.totalAmount - booking.amountPaid,
+              booking.status,
+            ].join(",") + "\r\n"
+        })
+
+        // Create download link
+        const encodedUri = encodeURI(csvContent)
+        const link = document.createElement("a")
+        link.setAttribute("href", encodedUri)
+        link.setAttribute("download", `payment_report_${new Date().toISOString().split("T")[0]}.xlsx`)
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      } else if (format === "pdf") {
+        // For PDF, we'll create a simple HTML and convert it to PDF using print functionality
+        // Create a new window for printing
+        const printWindow = window.open("", "_blank")
+
+        if (!printWindow) {
+          throw new Error("Unable to open print window. Please check if pop-ups are blocked.")
+        }
+
+        // Create HTML content
+        let htmlContent = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Payment Report</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 20px; }
+              h1 { color: #4f46e5; }
+              .report-header { margin-bottom: 20px; }
+              .summary-section { margin-bottom: 30px; }
+              .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+              .summary-item { padding: 10px; border: 1px solid #e5e7eb; border-radius: 5px; }
+              .summary-label { font-size: 12px; color: #6b7280; }
+              .summary-value { font-size: 16px; font-weight: bold; color: #1e1b4b; }
+              table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+              th { background-color: #f3f4f6; text-align: left; padding: 10px; font-size: 12px; }
+              td { padding: 10px; border-bottom: 1px solid #e5e7eb; }
+              .status-badge { display: inline-block; padding: 3px 8px; border-radius: 9999px; font-size: 12px; }
+              .status-confirmed { background-color: rgba(16, 185, 129, 0.1); color: #10b981; }
+              .status-tentative { background-color: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+              .status-cancelled { background-color: rgba(239, 68, 68, 0.1); color: #ef4444; }
+              .filters-section { margin-bottom: 20px; padding: 10px; background-color: #f9fafb; border-radius: 5px; }
+              @media print {
+                body { -webkit-print-color-adjust: exact; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="report-header">
+              <h1>Payment Report</h1>
+              <p>Generated on ${new Date().toLocaleString()}</p>
+            </div>
+            
+            <div class="filters-section">
+              <h3>Filters Applied</h3>
+              <p>Status: ${statusFilter}</p>
+              <p>Search Term: ${searchTerm || "None"}</p>
+              <p>Date Range: ${dateRange.start ? formatDate(dateRange.start) : "Any"} to ${dateRange.end ? formatDate(dateRange.end) : "Any"}</p>
+            </div>
+            
+            <div class="summary-section">
+              <h2>Summary</h2>
+              <div class="summary-grid">
+                <div class="summary-item">
+                  <div class="summary-label">Total Amount</div>
+                  <div class="summary-value">${formatCurrency(summaryData.totalAmount)}</div>
+                </div>
+                <div class="summary-item">
+                  <div class="summary-label">Amount Paid</div>
+                  <div class="summary-value">${formatCurrency(summaryData.amountPaid)}</div>
+                </div>
+                <div class="summary-item">
+                  <div class="summary-label">Outstanding</div>
+                  <div class="summary-value">${formatCurrency(summaryData.outstanding)}</div>
+                </div>
+                <div class="summary-item">
+                  <div class="summary-label">Total Bookings</div>
+                  <div class="summary-value">${summaryData.totalBookings}</div>
+                </div>
+                <div class="summary-item">
+                  <div class="summary-label">Confirmed Bookings</div>
+                  <div class="summary-value">${summaryData.confirmedBookings}</div>
+                </div>
+                <div class="summary-item">
+                  <div class="summary-label">Tentative Bookings</div>
+                  <div class="summary-value">${summaryData.tentativeBookings}</div>
+                </div>
+              </div>
+            </div>
+            
+            <h2>Transactions</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Event</th>
+                  <th>Venue</th>
+                  <th>Date</th>
+                  <th>Total Amount</th>
+                  <th>Amount Paid</th>
+                  <th>Outstanding</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+        `
+
+        // Add transaction rows
+        filteredBookings.forEach((booking) => {
+          const statusClass =
+            booking.status === "Confirmed"
+              ? "status-confirmed"
+              : booking.status === "Tentative"
+                ? "status-tentative"
+                : "status-cancelled"
+
+          htmlContent += `
+            <tr>
+              <td>${booking.response?.venueRequest?.eventName || "N/A"}</td>
+              <td>${booking.response?.venueRequest?.venue?.name || "N/A"}</td>
+              <td>${formatDate(booking.createdAt)}</td>
+              <td>${formatCurrency(booking.totalAmount)}</td>
+              <td>${formatCurrency(booking.amountPaid)}</td>
+              <td>${formatCurrency(booking.totalAmount - booking.amountPaid)}</td>
+              <td><span class="status-badge ${statusClass}">${booking.status}</span></td>
+            </tr>
+          `
+        })
+
+        // Close the HTML
+        htmlContent += `
+              </tbody>
+            </table>
+          </body>
+          </html>
+        `
+
+        // Write to the new window and print
+        printWindow.document.open()
+        printWindow.document.write(htmlContent)
+        printWindow.document.close()
+
+        // Wait for content to load before printing
+        printWindow.onload = () => {
+          printWindow.print()
+          // Don't close the window to allow the user to save as PDF
+        }
+      }
+
+      console.log(`${format.toUpperCase()} report generated successfully`)
+    } catch (err) {
+      console.error(`Error exporting ${format} report:`, err)
+      alert(`Failed to export report as ${format.toUpperCase()}. Please try again.`)
+    } finally {
+      setIsDownloading(false)
+      setShowExportOptions(false)
+    }
   }
 
   // Handle date filter
@@ -359,45 +629,302 @@ export default function PaymentReport() {
     setIsDownloading(true)
 
     try {
-      // Make API call to generate receipt
-      const response = await fetch(`http://localhost:3002/bookings/${booking._id}/receipt`, {
-        method: "GET",
-        credentials: "include",
-      })
+      // Create a new window for the receipt
+      const receiptWindow = window.open("", "_blank")
 
-      if (!response.ok) {
-        throw new Error("Failed to generate receipt")
+      if (!receiptWindow) {
+        throw new Error("Unable to open receipt window. Please check if pop-ups are blocked.")
       }
 
-      // Get the blob from the response
-      const blob = await response.blob()
+      // Format booking data
+      const eventName = booking.response?.venueRequest?.eventName || "Unnamed Event"
+      const venueName = booking.response?.venueRequest?.venue?.name || "N/A"
+      const bookingDate = formatDate(booking.createdAt)
+      const totalAmount = formatCurrency(booking.totalAmount)
+      const amountPaid = formatCurrency(booking.amountPaid)
+      const outstanding = formatCurrency(booking.totalAmount - booking.amountPaid)
 
-      // Create a URL for the blob
-      const url = window.URL.createObjectURL(blob)
+      // Create receipt HTML
+      const receiptHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Receipt - ${eventName}</title>
+        <style>
+          body { 
+            font-family: Arial, sans-serif; 
+            margin: 0; 
+            padding: 0;
+            background-color: #f9fafb;
+          }
+          .receipt {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 40px;
+            background-color: white;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+          }
+          .receipt-header {
+            text-align: center;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e5e7eb;
+            margin-bottom: 30px;
+          }
+          .receipt-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4f46e5;
+            margin-bottom: 5px;
+          }
+          .receipt-subtitle {
+            color: #6b7280;
+            font-size: 14px;
+          }
+          .receipt-number {
+            margin-top: 15px;
+            font-size: 14px;
+            color: #6b7280;
+          }
+          .receipt-date {
+            font-size: 14px;
+            color: #6b7280;
+          }
+          .receipt-section {
+            margin-bottom: 30px;
+          }
+          .section-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #1e1b4b;
+          }
+          .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 14px;
+          }
+          .detail-label {
+            color: #6b7280;
+          }
+          .detail-value {
+            font-weight: 500;
+            color: #1e1b4b;
+          }
+          .payment-details {
+            margin-top: 20px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 15px;
+            background-color: #f9fafb;
+          }
+          .payment-item {
+            padding: 10px 0;
+            border-bottom: 1px solid #e5e7eb;
+          }
+          .payment-item:last-child {
+            border-bottom: none;
+          }
+          .payment-method {
+            font-weight: 500;
+            color: #1e1b4b;
+          }
+          .payment-amount {
+            color: #10b981;
+          }
+          .payment-date {
+            font-size: 12px;
+            color: #6b7280;
+          }
+          .payment-id {
+            font-size: 12px;
+            color: #6b7280;
+            font-style: italic;
+          }
+          .total-section {
+            margin-top: 30px;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 20px;
+          }
+          .total-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 14px;
+          }
+          .total-label {
+            font-weight: 500;
+            color: #6b7280;
+          }
+          .total-value {
+            font-weight: 700;
+            color: #1e1b4b;
+          }
+          .grand-total {
+            font-size: 18px;
+            font-weight: 700;
+            color: #4f46e5;
+          }
+          .footer {
+            margin-top: 40px;
+            text-align: center;
+            font-size: 12px;
+            color: #9ca3af;
+          }
+          .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 10px;
+          }
+          .status-confirmed {
+            background-color: rgba(16, 185, 129, 0.1);
+            color: #10b981;
+          }
+          .status-tentative {
+            background-color: rgba(245, 158, 11, 0.1);
+            color: #f59e0b;
+          }
+          .status-cancelled {
+            background-color: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+          }
+          @media print {
+            body { 
+              background-color: white;
+              -webkit-print-color-adjust: exact;
+            }
+            .receipt {
+              box-shadow: none;
+              margin: 0;
+              padding: 20px;
+            }
+            .no-print {
+              display: none;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="receipt">
+          <div class="receipt-header">
+            <div class="receipt-title">Payment Receipt</div>
+            <div class="receipt-subtitle">Thank you for your booking</div>
+            <div class="receipt-number">Receipt #: ${booking._id}</div>
+            <div class="receipt-date">Date: ${new Date().toLocaleDateString()}</div>
+            <div class="status-badge status-${booking.status.toLowerCase()}">${booking.status}</div>
+          </div>
+          
+          <div class="receipt-section">
+            <div class="section-title">Event Details</div>
+            <div class="detail-row">
+              <div class="detail-label">Event Name:</div>
+              <div class="detail-value">${eventName}</div>
+            </div>
+            <div class="detail-row">
+              <div class="detail-label">Venue:</div>
+              <div class="detail-value">${venueName}</div>
+            </div>
+            <div class="detail-row">
+              <div class="detail-label">Booking Date:</div>
+              <div class="detail-value">${bookingDate}</div>
+            </div>
+            ${
+              booking.response?.venueRequest?.eventDates?.length > 0
+                ? `<div class="detail-row">
+                <div class="detail-label">Event Date(s):</div>
+                <div class="detail-value">${formatDate(booking.response.venueRequest.eventDates[0])}${
+                  booking.response.venueRequest.eventDates.length > 1
+                    ? ` (+${booking.response.venueRequest.eventDates.length - 1} more)`
+                    : ""
+                }</div>
+              </div>`
+                : ""
+            }
+          </div>
+          
+          <div class="receipt-section">
+            <div class="section-title">Payment Information</div>
+            ${
+              booking.paymentDetails && booking.paymentDetails.length > 0
+                ? `<div class="payment-details">
+                ${booking.paymentDetails
+                  .map(
+                    (payment) => `
+                  <div class="payment-item">
+                    <div class="detail-row">
+                      <div class="payment-method">${payment.paymentMethod}</div>
+                      <div class="payment-amount">${
+                        payment.paymentMethod === "PayPal"
+                          ? `${formatCurrency(payment.amount, "THB")} → ${formatCurrency(convertCurrency(payment.amount, payment.paymentMethod))}`
+                          : formatCurrency(payment.amount)
+                      }</div>
+                    </div>
+                    <div class="detail-row">
+                      <div class="payment-id">Transaction ID: ${payment.transactionId}</div>
+                      <div class="payment-date">${formatDate(payment.timestamp)}</div>
+                    </div>
+                  </div>
+                `,
+                  )
+                  .join("")}
+              </div>`
+                : `<div class="detail-row">
+                <div class="detail-label">No payment details available</div>
+              </div>`
+            }
+            
+            <div class="total-section">
+              <div class="total-row">
+                <div class="total-label">Total Amount:</div>
+                <div class="total-value">${totalAmount}</div>
+              </div>
+              <div class="total-row">
+                <div class="total-label">Amount Paid:</div>
+                <div class="total-value">${amountPaid}</div>
+              </div>
+              <div class="total-row">
+                <div class="total-label">Outstanding:</div>
+                <div class="total-value">${outstanding}</div>
+              </div>
+              <div class="total-row">
+                <div class="total-label grand-total">Payment Status:</div>
+                <div class="total-value grand-total">${booking.amountPaid >= booking.totalAmount ? "FULLY PAID" : "PARTIALLY PAID"}</div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="footer">
+            <p>This is an electronically generated receipt and does not require a signature.</p>
+            <p>For any questions regarding this receipt, please contact support.</p>
+          </div>
+          
+          <div class="no-print" style="text-align: center; margin-top: 30px;">
+            <button onclick="window.print()" style="padding: 10px 20px; background-color: #4f46e5; color: white; border: none; border-radius: 5px; cursor: pointer;">
+              Print Receipt
+            </button>
+          </div>
+        </div>
+      </body>
+      </html>
+    `
 
-      // Create a temporary link element
-      const link = document.createElement("a")
-      link.href = url
+      // Write to the new window and print
+      receiptWindow.document.open()
+      receiptWindow.document.write(receiptHTML)
+      receiptWindow.document.close()
 
-      // Set the download attribute with filename
-      const eventName = booking.response?.venueRequest?.eventName || "booking"
-      const sanitizedEventName = eventName.replace(/[^a-z0-9]/gi, "_").toLowerCase()
-      link.download = `receipt_${sanitizedEventName}_${booking._id}.pdf`
-
-      // Append to the document
-      document.body.appendChild(link)
-
-      // Trigger the download
-      link.click()
-
-      // Clean up
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(link)
-
-      console.log("Receipt downloaded successfully")
+      // Wait for content to load before enabling print
+      receiptWindow.onload = () => {
+        // Don't automatically print - let the user click the print button
+        console.log("Receipt generated successfully")
+      }
     } catch (err) {
-      console.error("Error downloading receipt:", err)
-      alert("Failed to download receipt. Please try again.")
+      console.error("Error generating receipt:", err)
+      alert("Failed to generate receipt. Please try again.")
     } finally {
       setIsDownloading(false)
     }
@@ -2001,7 +2528,7 @@ export default function PaymentReport() {
         }
 
         .converted-amount {
-          font-weight: 500;
+          font-weight: 600;
           color: #4f46e5;
         }
 

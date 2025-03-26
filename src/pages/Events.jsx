@@ -480,104 +480,159 @@ function Events() {
     // We'll use dynamic imports to load the libraries only when needed
     import("jspdf").then(({ default: jsPDF }) => {
       import("jspdf-autotable").then(({ default: autoTable }) => {
-        // Create a new PDF document
-        const doc = new jsPDF()
+        import("html2canvas").then(({ default: html2canvas }) => {
+          // Create a temporary div to render the report
+          const reportContainer = document.createElement("div")
+          reportContainer.className = "pdf-report-container"
+          reportContainer.style.position = "absolute"
+          reportContainer.style.left = "-9999px"
+          reportContainer.style.width = "800px"
+          reportContainer.style.backgroundColor = "white"
+          reportContainer.style.padding = "20px"
+          document.body.appendChild(reportContainer)
 
-        // Add report title and metadata
-        doc.setFontSize(18)
-        doc.text(`Events Report - ${activeFilter !== "All" ? activeFilter : "All"} Events`, 14, 22)
+          // Calculate summary statistics
+          const totalEvents = filteredEvents.length
+          const totalAttendance = filteredEvents.reduce(
+            (sum, event) => sum + event.bookingId.response.venueRequest.expectedAttendance,
+            0,
+          )
+          const totalRevenue = filteredEvents.reduce((sum, event) => sum + event.bookingId.amountPaid, 0)
+          const fullyPaidCount = filteredEvents.filter(
+            (event) => event.bookingId.amountPaid >= event.bookingId.totalAmount,
+          ).length
 
-        doc.setFontSize(11)
-        doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30)
+          // Create report HTML content
+          reportContainer.innerHTML = `
+          <div style="font-family: Arial, sans-serif; color: #333;">
+            <div style="text-align: center; margin-bottom: 20px;">
+              <h1 style="color: #6366f1; margin-bottom: 5px;">Events Report</h1>
+              <p style="color: #666; margin: 0;">${activeFilter !== "All" ? activeFilter : "All"} Events - Generated on ${new Date().toLocaleString()}</p>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap;">
+              <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; width: 22%; text-align: center;">
+                <h3 style="margin: 0; font-size: 24px; color: #6366f1;">${totalEvents}</h3>
+                <p style="margin: 5px 0 0; color: #666;">Total Events</p>
+              </div>
+              <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; width: 22%; text-align: center;">
+                <h3 style="margin: 0; font-size: 24px; color: #6366f1;">${totalAttendance.toLocaleString()}</h3>
+                <p style="margin: 5px 0 0; color: #666;">Total Attendance</p>
+              </div>
+              <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; width: 22%; text-align: center;">
+                <h3 style="margin: 0; font-size: 24px; color: #6366f1;">${totalRevenue.toLocaleString()}</h3>
+                <p style="margin: 5px 0 0; color: #666;">Total Revenue</p>
+              </div>
+              <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; width: 22%; text-align: center;">
+                <h3 style="margin: 0; font-size: 24px; color: #6366f1;">${Math.round((fullyPaidCount / totalEvents) * 100)}%</h3>
+                <p style="margin: 5px 0 0; color: #666;">Fully Paid</p>
+              </div>
+            </div>
+            
+            <h2 style="color: #4f46e5; margin-top: 30px; margin-bottom: 15px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Event Details</h2>
+            
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+              <thead>
+                <tr style="background-color: #6366f1; color: white;">
+                  <th style="padding: 12px; text-align: left; border: 1px solid #e5e7eb;">Event Name</th>
+                  <th style="padding: 12px; text-align: left; border: 1px solid #e5e7eb;">Venue</th>
+                  <th style="padding: 12px; text-align: left; border: 1px solid #e5e7eb;">Dates</th>
+                  <th style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;">Attendance</th>
+                  <th style="padding: 12px; text-align: center; border: 1px solid #e5e7eb;">Status</th>
+                  <th style="padding: 12px; text-align: center; border: 1px solid #e5e7eb;">Payment</th>
+                  <th style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;">Amount Paid</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${filteredEvents
+                  .map(
+                    (event, index) => `
+                  <tr style="background-color: ${index % 2 === 0 ? "#f9fafb" : "white"};">
+                    <td style="padding: 12px; text-align: left; border: 1px solid #e5e7eb;">${event.bookingId.response.venueRequest.eventName}</td>
+                    <td style="padding: 12px; text-align: left; border: 1px solid #e5e7eb;">${event.bookingId.response.venueRequest.venue ? event.bookingId.response.venueRequest.venue.name : "No Venue"}</td>
+                    <td style="padding: 12px; text-align: left; border: 1px solid #e5e7eb;">${formatDateRange(event.bookingId.response.venueRequest.eventDates)}</td>
+                    <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;">${event.bookingId.response.venueRequest.expectedAttendance.toLocaleString()}</td>
+                    <td style="padding: 12px; text-align: center; border: 1px solid #e5e7eb;">
+                      <span style="display: inline-block; padding: 4px 8px; border-radius: 9999px; font-size: 12px; font-weight: 600; background-color: ${
+                        event.status === "Upcoming"
+                          ? "rgba(99, 102, 241, 0.1)"
+                          : event.status === "Ongoing"
+                            ? "rgba(245, 158, 11, 0.1)"
+                            : "rgba(16, 185, 129, 0.1)"
+                      }; color: ${
+                        event.status === "Upcoming" ? "#6366f1" : event.status === "Ongoing" ? "#f59e0b" : "#10b981"
+                      };">${event.status}</span>
+                    </td>
+                    <td style="padding: 12px; text-align: center; border: 1px solid #e5e7eb;">
+                      <span style="display: inline-block; padding: 4px 8px; border-radius: 9999px; font-size: 12px; font-weight: 600; background-color: ${
+                        event.bookingId.amountPaid >= event.bookingId.totalAmount
+                          ? "rgba(16, 185, 129, 0.1)"
+                          : "rgba(245, 158, 11, 0.1)"
+                      }; color: ${
+                        event.bookingId.amountPaid >= event.bookingId.totalAmount ? "#10b981" : "#f59e0b"
+                      };">${event.bookingId.amountPaid >= event.bookingId.totalAmount ? "Fully Paid" : "Partially Paid"}</span>
+                    </td>
+                    <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;">${event.bookingId.amountPaid.toLocaleString()} / ${event.bookingId.totalAmount.toLocaleString()}</td>
+                  </tr>
+                `,
+                  )
+                  .join("")}
+              </tbody>
+            </table>
+            
+            <div style="margin-top: 30px; border-top: 1px solid #e5e7eb; padding-top: 15px; font-size: 12px; color: #6b7280; text-align: center;">
+              <p>This report was generated on ${new Date().toLocaleString()} • Events Dashboard</p>
+            </div>
+          </div>
+        `
 
-        // Add summary statistics
-        const totalEvents = filteredEvents.length
-        const totalAttendance = filteredEvents.reduce(
-          (sum, event) => sum + event.bookingId.response.venueRequest.expectedAttendance,
-          0,
-        )
-        const totalRevenue = filteredEvents.reduce((sum, event) => sum + event.bookingId.amountPaid, 0)
-        const fullyPaidCount = filteredEvents.filter(
-          (event) => event.bookingId.amountPaid >= event.bookingId.totalAmount,
-        ).length
+          // Use html2canvas to capture the report as an image
+          html2canvas(reportContainer, {
+            scale: 2, // Higher scale for better quality
+            logging: false,
+            useCORS: true,
+            backgroundColor: "#ffffff",
+          }).then((canvas) => {
+            const imgData = canvas.toDataURL("image/png")
 
-        doc.text(`Total Events: ${totalEvents}`, 14, 40)
-        doc.text(`Total Expected Attendance: ${totalAttendance.toLocaleString()}`, 14, 48)
-        doc.text(`Total Revenue: ${totalRevenue.toLocaleString()}`, 14, 56)
-        doc.text(`Fully Paid Events: ${fullyPaidCount} (${Math.round((fullyPaidCount / totalEvents) * 100)}%)`, 14, 64)
+            // Create PDF with proper dimensions
+            const pdf = new jsPDF({
+              orientation: "portrait",
+              unit: "mm",
+              format: "a4",
+            })
 
-        // Prepare table data
-        const tableData = filteredEvents.map((event) => [
-          event.bookingId.response.venueRequest.eventName,
-          event.bookingId.response.venueRequest.venue ? event.bookingId.response.venueRequest.venue.name : "No Venue",
-          formatDateRange(event.bookingId.response.venueRequest.eventDates),
-          event.bookingId.response.venueRequest.expectedAttendance.toLocaleString(),
-          event.status,
-          event.bookingId.amountPaid >= event.bookingId.totalAmount ? "Fully Paid" : "Partially Paid",
-          event.bookingId.amountPaid.toLocaleString(),
-          event.bookingId.totalAmount.toLocaleString(),
-        ])
+            const imgWidth = 210 // A4 width in mm (portrait)
+            const imgHeight = (canvas.height * imgWidth) / canvas.width
 
-        // Add the table to the PDF
-        autoTable(doc, {
-          startY: 75,
-          head: [["Event Name", "Venue", "Dates", "Attendance", "Status", "Payment", "Amount Paid", "Total Amount"]],
-          body: tableData,
-          headStyles: {
-            fillColor: [99, 102, 241], // Primary color
-            textColor: 255,
-            fontStyle: "bold",
-          },
-          alternateRowStyles: {
-            fillColor: [249, 250, 251], // Light background for alternate rows
-          },
-          styles: {
-            fontSize: 10,
-            cellPadding: 3,
-          },
-          columnStyles: {
-            0: { cellWidth: "auto" }, // Event Name
-            1: { cellWidth: "auto" }, // Venue
-            2: { cellWidth: "auto" }, // Dates
-            3: { cellWidth: 25 }, // Attendance
-            4: { cellWidth: 25 }, // Status
-            5: { cellWidth: 30 }, // Payment
-            6: { cellWidth: 25 }, // Amount Paid
-            7: { cellWidth: 25 }, // Total Amount
-          },
-        })
+            pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight)
 
-        // Add status color indicators
-        doc.setFontSize(9)
-        const statusY = doc.lastAutoTable.finalY + 15
+            // Add page numbers if multiple pages
+            if (imgHeight > 297) {
+              // A4 height in mm
+              const pageCount = Math.ceil(imgHeight / 297)
+              for (let i = 1; i <= pageCount; i++) {
+                pdf.setPage(i)
+                pdf.setFontSize(10)
+                pdf.setTextColor(100, 100, 100)
+                pdf.text(
+                  `Page ${i} of ${pageCount}`,
+                  pdf.internal.pageSize.getWidth() / 2,
+                  pdf.internal.pageSize.getHeight() - 10,
+                  {
+                    align: "center",
+                  },
+                )
+              }
+            }
 
-        // Upcoming status
-        doc.setFillColor(99, 102, 241) // var(--color-upcoming)
-        doc.circle(20, statusY, 3, "F")
-        doc.text("Upcoming", 25, statusY + 1)
+            // Save the PDF
+            pdf.save(`events_report_${activeFilter.toLowerCase()}_${new Date().toISOString().split("T")[0]}.pdf`)
 
-        // Ongoing status
-        doc.setFillColor(245, 158, 11) // var(--color-ongoing)
-        doc.circle(60, statusY, 3, "F")
-        doc.text("Ongoing", 65, statusY + 1)
-
-        // Completed status
-        doc.setFillColor(16, 185, 129) // var(--color-completed)
-        doc.circle(100, statusY, 3, "F")
-        doc.text("Completed", 105, statusY + 1)
-
-        // Add footer with page numbers
-        const pageCount = doc.getNumberOfPages()
-        for (let i = 1; i <= pageCount; i++) {
-          doc.setPage(i)
-          doc.setFontSize(10)
-          doc.text(`Page ${i} of ${pageCount}`, doc.internal.pageSize.width / 2, doc.internal.pageSize.height - 10, {
-            align: "center",
+            // Clean up
+            document.body.removeChild(reportContainer)
           })
-        }
-
-        // Save the PDF
-        doc.save(`events_report_${activeFilter.toLowerCase()}_${new Date().toISOString().split("T")[0]}.pdf`)
+        })
       })
     })
   }
@@ -660,7 +715,7 @@ function Events() {
               aria-label="Timeline view"
             >
               <svg viewBox="0 0 24 24" className="view-icon">
-                <path d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+                <path d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
               </svg>
             </button>
             <button
@@ -734,7 +789,7 @@ function Events() {
 
             <button className="generate-report-btn pdf-report-btn" onClick={generatePdfReport}>
               <svg viewBox="0 0 24 24" className="pdf-icon">
-                <path d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                <path d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2-2H5a2 2 0 01-2-2z" />
               </svg>
               PDF Report
             </button>
@@ -2484,7 +2539,7 @@ function Events() {
             opacity var(--transition-normal);
         }
 
-        .event-detail-modal.open {
+        .event-detail-modal.open .modal-content {
           transform: translateY(0);
           opacity: 1;
         }
