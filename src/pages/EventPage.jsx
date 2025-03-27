@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react"
 import Navbar from "../components/Navbar"
 import Footer from "../components/Footer"
+import PaymentModal from "../components/PaymentModal"
+import AuthModal from "../components/AuthModal"
 
 const EventPage = () => {
   const [events, setEvents] = useState([])
@@ -13,8 +15,16 @@ const EventPage = () => {
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [daysRemaining, setDaysRemaining] = useState(0)
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
+  const [selectedEventId, setSelectedEventId] = useState("")
+  const [currentUser, setCurrentUser] = useState(null)
+  const [isCheckingAuth, setIsCheckingAuth] = useState(false)
 
   useEffect(() => {
+    // Check authentication status when component mounts
+    checkAuthStatus()
+
     const fetchEvents = async () => {
       try {
         const response = await fetch("http://localhost:3002/events")
@@ -58,6 +68,26 @@ const EventPage = () => {
 
     fetchEvents()
   }, [])
+
+  // Function to check if user is authenticated
+  const checkAuthStatus = async () => {
+    try {
+      setIsCheckingAuth(true)
+      const response = await fetch("http://localhost:3002/current-attendee", {credentials: "include"})
+      const data = await response.json()
+
+      if (data && data.user) {
+        setCurrentUser(data.user)
+      } else {
+        setCurrentUser(null)
+      }
+    } catch (error) {
+      console.error("Error checking authentication:", error)
+      setCurrentUser(null)
+    } finally {
+      setIsCheckingAuth(false)
+    }
+  }
 
   useEffect(() => {
     let filtered = events
@@ -125,6 +155,37 @@ const EventPage = () => {
   const closeModal = () => {
     setIsModalOpen(false)
     setTimeout(() => setSelectedEvent(null), 300) // Clear selected event after animation
+  }
+
+  // Modified to check authentication before opening payment modal
+  const openPaymentModal = async (eventId) => {
+    // Check authentication status first
+    await checkAuthStatus()
+
+    if (currentUser) {
+      // User is logged in, proceed to payment
+      setSelectedEventId(eventId)
+      setIsPaymentModalOpen(true)
+    } else {
+      // User is not logged in, show auth modal
+      setSelectedEventId(eventId) // Still store the event ID for later
+      setIsAuthModalOpen(true)
+    }
+  }
+
+  const closePaymentModal = () => {
+    setIsPaymentModalOpen(false)
+  }
+
+  const closeAuthModal = () => {
+    setIsAuthModalOpen(false)
+    // Check if user is now authenticated after modal closes
+    checkAuthStatus().then(() => {
+      // If user is now authenticated, open payment modal
+      if (currentUser) {
+        setIsPaymentModalOpen(true)
+      }
+    })
   }
 
   if (loading) {
@@ -260,7 +321,7 @@ const EventPage = () => {
                           className="register-button"
                           onClick={(e) => {
                             e.stopPropagation() // Prevent triggering card click
-                            // Registration logic here
+                            openPaymentModal(event._id)
                           }}
                         >
                           Register Now
@@ -400,7 +461,15 @@ const EventPage = () => {
                     <button className="modal-button secondary" onClick={closeModal}>
                       Close
                     </button>
-                    <button className="modal-button primary">Register Now</button>
+                    <button
+                      className="modal-button primary"
+                      onClick={(e) => {
+                        closeModal()
+                        openPaymentModal(selectedEvent._id)
+                      }}
+                    >
+                      Register Now
+                    </button>
                   </div>
                 </>
               )
@@ -409,8 +478,14 @@ const EventPage = () => {
         </div>
       )}
 
+      {/* Payment Modal - Only shown if user is authenticated */}
+      <PaymentModal isOpen={isPaymentModalOpen} onClose={closePaymentModal} eventId={selectedEventId} />
+
+      {/* Auth Modal - Shown when user tries to register but is not logged in */}
+      <AuthModal isOpen={isAuthModalOpen} initialView="login" onClose={closeAuthModal} />
+
       <Footer />
-      <style jsx>{`
+      <style jsx="true">{`
         /* Base styles and reset */
         * {
           margin: 0;

@@ -15,6 +15,7 @@ import EventPage from "../pages/EventPage";
 import Organizers from "../pages/Organizers";
 import CreateTickets from "../pages/CreateTickets";
 import AttendeeTracker from "../pages/AttendeeTracker";
+import TicketsPage from "../pages/TicketsPage";
 export const router = createBrowserRouter([
   {
     path: "/",
@@ -56,6 +57,17 @@ export const router = createBrowserRouter([
       },
     ],
   },
+  {
+    path: "/personal_tickets",
+    element: <ProtectedRoute element={<AppLayout />}/>,
+    children: [
+      {
+        index: true,
+        element: <TicketsPage />
+      },
+    ],
+  },
+
   {
     path: "/dashboard",
     element: <ProtectedRoute element={<MainLayout />}/>,

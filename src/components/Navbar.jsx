@@ -1,13 +1,77 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
-import { Menu, X } from "lucide-react";
+"use client"
+
+import { useState, useEffect } from "react"
+import { Link } from "react-router-dom"
+import { Menu, X } from "lucide-react"
+import AuthModal from "./AuthModal"
 
 export default function Navbar() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
+  const [authModalType, setAuthModalType] = useState("login")
+  const [currentUser, setCurrentUser] = useState(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Fetch current user on component mount
+  useEffect(() => {
+    fetchCurrentUser()
+  }, [])
+
+  // Function to fetch current user
+  const fetchCurrentUser = async () => {
+    try {
+      setIsLoading(true)
+      const response = await fetch("http://localhost:3002/current-attendee", {credentials: "include"})
+      const data = await response.json()
+
+      if (data && data.user) {
+        setCurrentUser(data.user)
+      } else {
+        setCurrentUser(null)
+      }
+    } catch (error) {
+      console.error("Error fetching user:", error)
+      setCurrentUser(null)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Function to handle logout
+  const handleLogout = async () => {
+    try {
+      const response = await fetch("http://localhost:3002/logout-user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      })
+
+      if (response.ok) {
+        setCurrentUser(null)
+      } else {
+        console.error("Logout failed")
+      }
+    } catch (error) {
+      console.error("Error during logout:", error)
+    }
+  }
 
   const toggleMenu = () => {
-    setIsMenuOpen(!isMenuOpen);
-  };
+    setIsMenuOpen(!isMenuOpen)
+  }
+
+  const openAuthModal = (type) => {
+    setAuthModalType(type)
+    setIsAuthModalOpen(true)
+  }
+
+  // Close modal callback - refresh user data when modal closes
+  const handleCloseModal = () => {
+    setIsAuthModalOpen(false)
+    fetchCurrentUser() // Refresh user data when modal closes
+  }
 
   return (
     <header className="navbar">
@@ -29,24 +93,34 @@ export default function Navbar() {
             <li>
               <Link to="/upcoming">Browse Events</Link>
             </li>
-          
+
             <li>
-              <Link to="/organizers">For Organizers</Link>
+              <Link to="/personal_tickets">Your Tickets</Link>
             </li>
             <li>
-              <Link href="/about">About Us</Link>
+              <Link to="/about">About Us</Link>
             </li>
           </ul>
           <div className="navbar-buttons">
-            <Link href="/login" className="login-button">
-              Log In
-            </Link>
-            <Link href="/signup" className="signup-button">
-              Sign Up
-            </Link>
+            {isLoading ? (
+              <button className="login-button" disabled>
+                Loading...
+              </button>
+            ) : currentUser ? (
+              <button onClick={handleLogout} className="logout-button">
+                Logout ({currentUser.fname})
+              </button>
+            ) : (
+              <button onClick={() => openAuthModal("login")} className="login-button">
+                Log In / Sign Up
+              </button>
+            )}
           </div>
         </nav>
       </div>
+
+      {isAuthModalOpen && <AuthModal isOpen={isAuthModalOpen} initialView={authModalType} onClose={handleCloseModal} />}
+
       <style jsx>{`
         .navbar {
           position: sticky;
@@ -115,7 +189,7 @@ export default function Navbar() {
           gap: 1rem;
         }
 
-        .login-button {
+        .login-button, .logout-button {
           padding: 0.5rem 1rem;
           color: #5d3fd3;
           background: transparent;
@@ -124,10 +198,20 @@ export default function Navbar() {
           font-weight: 500;
           text-decoration: none;
           transition: all 0.3s ease;
+          cursor: pointer;
         }
 
-        .login-button:hover {
+        .login-button:hover, .logout-button:hover {
           background: rgba(93, 63, 211, 0.1);
+        }
+
+        .logout-button {
+          color: #e53935;
+          border-color: #e53935;
+        }
+
+        .logout-button:hover {
+          background: rgba(229, 57, 53, 0.1);
         }
 
         .signup-button {
@@ -181,6 +265,7 @@ export default function Navbar() {
           }
 
           .login-button,
+          .logout-button,
           .signup-button {
             text-align: center;
             width: 100%;
@@ -188,5 +273,6 @@ export default function Navbar() {
         }
       `}</style>
     </header>
-  );
+  )
 }
+
