@@ -5,6 +5,7 @@ export default function AuthModal({ isOpen, initialView, onClose }) {
   const [modalType, setModalType] = useState(initialView)
   const [isFlipping, setIsFlipping] = useState(false)
   const [email, setEmail] = useState("")
+  const [phoneNumber, setPhoneNumber] = useState("") // Fixed: Added useState here
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [firstName, setFirstName] = useState("")
@@ -23,6 +24,7 @@ export default function AuthModal({ isOpen, initialView, onClose }) {
       setModalType(initialView)
       setError("")
       setEmail("")
+      setPhoneNumber("")
       setPassword("")
       setConfirmPassword("")
       setFirstName("")
@@ -93,10 +95,7 @@ export default function AuthModal({ isOpen, initialView, onClose }) {
       const data = await response.json()
       console.log("Login successful:", data)
 
-      
       onClose()
-
-      
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred during login")
     } finally {
@@ -130,6 +129,7 @@ export default function AuthModal({ isOpen, initialView, onClose }) {
           lastName,
           gender,
           email,
+          phoneNumber,
           password,
         }),
       })
@@ -169,12 +169,14 @@ export default function AuthModal({ isOpen, initialView, onClose }) {
         },
         body: JSON.stringify({
           email: verificationEmail,
-          verificationCode,
+          code: verificationCode, // Changed from verificationCode to code
         }),
+        credentials: "include", // Added credentials to include cookies
       })
 
       if (!response.ok) {
-        throw new Error("Verification failed. Please check your code and try again.")
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.message || "Verification failed. Please check your code and try again.")
       }
 
       const data = await response.json()
@@ -498,6 +500,18 @@ export default function AuthModal({ isOpen, initialView, onClose }) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="your@email.com"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="signup-phone">Phone Number</label>
+              <input
+                type="tel" // Changed from email to tel for phone number
+                id="signup-phone"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                placeholder="+254712345678"
                 required
               />
             </div>
