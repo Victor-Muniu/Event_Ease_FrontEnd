@@ -125,24 +125,9 @@ export default function Login() {
               <span>Or continue with</span>
             </div>
 
-            <div className="social-buttons">
-              <button className="social-button google">
-                <img src="https://cdn-icons-png.flaticon.com/128/300/300221.png" alt="Google" width="20" height="20" />
-                <span>Google</span>
-              </button>
-              <button className="social-button facebook">
-                <img
-                  src="https://cdn-icons-png.flaticon.com/128/5968/5968764.png"
-                  alt="Facebook"
-                  width="20"
-                  height="20"
-                />
-                <span>Facebook</span>
-              </button>
-            </div>
+            
 
             <p className="signup-prompt">
-              Don't have an account?{" "}
               <button onClick={() => setIsSignupModalOpen(true)} className="signup-link">
                 Sign up here
               </button>
